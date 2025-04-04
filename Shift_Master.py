@@ -106,7 +106,7 @@ async def check_and_notify() -> str:
             message.append(f"{player}, НТ, старенький, як вже є :(")
         compiled_msg = "\n".join(message)
     else:
-        compiled_msg = "За останню годину в соло ніхто не програвав"
+        compiled_msg = ""
     await asyncio.sleep(0.1)
     return compiled_msg
 

@@ -27,7 +27,8 @@ async def send_stats():
 
 async def send_loss_stats():
     text = await check_and_notify()
-    await bot.sendMessage(chat_id='-4764440479', text=text)
+    if text:
+        await bot.sendMessage(chat_id='-4764440479', text=text)
 
 # f() to handle /stats
 async def stats(update, context):
@@ -39,7 +40,10 @@ async def stats(update, context):
 async def losses(update, context):
     await update.message.reply_text("*Перевіряє на запах ділдаки*...")
     result = await check_and_notify()
-    await update.message.reply_text(result)
+    if result:
+        await update.message.reply_text(result)
+    else:
+        await update.message.reply_text("За останню годину в соло ніхто не програвав")
 
 # f() to make sure bot is running
 async def start(update, context):

@@ -7,8 +7,8 @@ from django.db.models.query_utils import select_related_descend
 #import schedule
 from telegram import Bot
 from datetime import datetime, timedelta
-import Shift_Master
-from Shift_Master import Player, players
+import shift_master
+from shift_master import Player, players
 
 
 async def get_matches(session, steam_id):

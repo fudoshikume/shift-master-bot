@@ -1,16 +1,8 @@
 from typing import Any
 import requests
 import datetime
-import aiohttp
 import asyncio
-
-from django.db.models.query_utils import select_related_descend
-#import schedule
-from telegram import Bot
 from datetime import datetime, timedelta
-
-bot = Bot(token='7605785848:AAHomujEg_sQuk9B1rODOnb9TjHGoOrcFjk')
-
 
 def get_match_end_time(match) -> datetime.timestamp:
     match_start_game = datetime.fromtimestamp(match['start_time'])
@@ -27,7 +19,6 @@ def player_win(match) -> True | False:
 
 ### below goes class Player with attr and methods for handling:
 class Player:
-    abc = 123
     def __init__(self, steam_id, name):
         self.steam_id = steam_id
         self.name = name
@@ -85,11 +76,9 @@ async def get_solo_losses() -> list:
     for player in players:
         matches = await player.get_recent_matches()
         for match in matches:
-            #print(f"match: {match['match_id']}\nparty size: {match['party_size']}\nend time:{get_match_end_time(match)}")
             match_end_time = get_match_end_time(match)
             if match_end_time < one_hour_ago:
                 break  # Matches are sorted, no need to check older ones
-                #datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(t, datetime.UTC).
 
             if (not player_win(match)) and (match.get("party_size") == 1 | 0):
                 solo_loss_players.append(player.name)
@@ -99,14 +88,10 @@ async def get_solo_losses() -> list:
 async def check_and_notify() -> str:
     """f() sends message to Telegram group based on result from get_solo_losses()"""
     message = [""]
-    compiled_msg = ""
     solo_loss_players = await get_solo_losses()
-    if solo_loss_players:
-        for player in solo_loss_players:
-            message.append(f"{player}, НТ, старенький, як вже є :(")
-        compiled_msg = "\n".join(message)
-    else:
-        compiled_msg = ""
+    for player in solo_loss_players:
+        message.append(f"{player}, НТ, старенький, вже як є :(")
+    compiled_msg = "\n".join(message)
     await asyncio.sleep(0.1)
     return compiled_msg
 
@@ -143,44 +128,9 @@ players = [
     Player(153518750, '@m_ANJ'),
     Player(221564662, '@dimon4egkl')]
 
-## BELOW is commands handling
-async def main():
-    print(await full_stats())
-    print(await check_and_notify())
 
+#todo: - clear_stats,
+# add_player,
+# enclose players in .csv
 
-if __name__ == "__main__":
-    asyncio.run(main())
-"""
-# f() to handle /stats
-async def stats(update, context):
-    await update.message.reply_text("*копається в гівні*...")
-    await update.message.reply_text(full_stats())
-
-# f() to handle /losses
-async def losses(update, context):
-    await update.message.reply_text("*Перевіряє на запах ділдаки*...")
-    await update.message.reply_text(full_stats())
-
-# f() to make sure bot is running
-async def start(update, context):
-    await update.message.reply_text("Начальник зміни на проводі!")
-
-async def help(update, context):
-    await update.message.reply_text("Доступні команди: \n/help - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.")
-
-def main():
-    app = Application.builder().token("7605785848:AAHomujEg_sQuk9B1rODOnb9TjHGoOrcFjk").build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("losses", losses))
-    app.add_handler(CommandHandler("help", help))
-
-    schedule.every().day.at("00:00").do(full_stats)
-    schedule.every(1).hours.do(check_and_notify)
-
-    app.run_polling()
-
-main()"""
 

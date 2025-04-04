@@ -1,11 +1,6 @@
-import requests
-import datetime
-import schedule
 from telegram import Bot
-from datetime import datetime, timedelta
 from telegram.ext import CommandHandler, Application
-import Shift_Master
-from Shift_Master import check_and_notify, full_stats
+from shift_master import check_and_notify, full_stats
 from match_parser import check_and_parse_matches
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -15,7 +10,6 @@ import os
 load_dotenv()  # Load variables from .env file
 
 TG_Token = os.getenv("TELEGRAM_TOKEN")
-
 
 bot = Bot(token=TG_Token)
 
@@ -81,20 +75,3 @@ async def main():
     await asyncio.sleep(float('inf'))  # Keeps everything running
 
 asyncio.run(main())
-
-
-"""async def scheduled_tasks():
-    scheduler = AsyncIOScheduler()
-    # Run check_and_parse_matches every minute
-    scheduler.add_job(match_parser.check_and_parse_matches, 'interval', minutes=1)
-
-    # Run full_stats every day at 2 AM
-    scheduler.add_job(schedule_stats, 'cron', hour=2, minute=0)
-
-    # Run check_and_notify every hour
-    scheduler.add_job(schedule_loss_stats, 'interval', hours=1)
-
-    await scheduler.start()
-
-    while True:
-        await asyncio.sleep(1)  # Keep the event loop running"""

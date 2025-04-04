@@ -1,7 +1,6 @@
 import discord
-import schedule
 from discord.ext import commands
-from Shift_Master import Player
+from shift_master import Player
 import datetime
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -10,6 +9,7 @@ import os
 load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
+
 players = [
     Player(60939193, '@basturmate'),
     Player(91979951, '@chuck_singer'),

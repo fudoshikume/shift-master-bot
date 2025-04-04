@@ -3,7 +3,7 @@ import requests
 import datetime
 import aiohttp
 import asyncio
-from django.db.models.query_utils import select_related_descend
+
 #import schedule
 from telegram import Bot
 from datetime import datetime, timedelta

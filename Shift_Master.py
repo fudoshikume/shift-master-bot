@@ -140,10 +140,10 @@ def remove_player(steam_id, platform=None):
         players.remove(player_to_remove)
         save_players_to_csv(players)  # Save the updated list back to CSV
         if platform:
-            return f"Player {player_to_remove.name.get(platform)} with Steam ID {steam_id} has been removed."
-        return f"Player with Steam ID {steam_id} has been removed."
+            return f"Гравця {player_to_remove.name.get(platform)} з Steam ID {steam_id} видалено з теки."
+        return f"Гравця {steam_id} видалено з теки."
     else:
-        return f"Player with Steam ID {steam_id} not found."
+        return f"Гравця з Steam ID {steam_id} не знайдено в теці."
 
 def save_players_to_csv(players, filename="players.csv"):
     with open(filename, mode="w", newline="", encoding="utf-8") as file:
@@ -168,7 +168,6 @@ async def full_stats(platform) -> str:
     return message
 
 #todo:
-# add_player,
 
 
 

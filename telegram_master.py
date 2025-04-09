@@ -45,7 +45,7 @@ async def start(update, context):
     await update.message.reply_text("Начальник зміни на проводі!")
 
 async def gethelp(update, context):
-    await update.message.reply_text("Доступні команди: \n/help - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> -Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID> Видалити досьє гравця з теки.\nБільше інфи в @chuck.singer")
+    await update.message.reply_text("Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> -Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID> Видалити досьє гравця з теки.\nБільше інфи в @chuck.singer")
 
 async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
@@ -85,6 +85,7 @@ async def main():
     app.add_handler(CommandHandler("losses", losses))
     app.add_handler(CommandHandler("gethelp", gethelp))
     app.add_handler(CommandHandler("addplayer", addplayer))
+    app.add_handler(CommandHandler("removeplayer", removeplayer))
 
     # Schedule recurring tasks
     app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)  # every 10 min

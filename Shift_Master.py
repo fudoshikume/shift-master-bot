@@ -126,6 +126,25 @@ def add_player(steam_id, name_dict):
     save_players_to_csv(players)
     return True
 
+def remove_player(steam_id, platform=None):
+    """Remove a player from the CSV file based on steam_id"""
+    players = load_players_from_csv()  # Load current players from CSV
+    player_to_remove = None
+
+    for player in players:
+        if player.steam_id == steam_id:
+            player_to_remove = player
+            break
+
+    if player_to_remove:
+        players.remove(player_to_remove)
+        save_players_to_csv(players)  # Save the updated list back to CSV
+        if platform:
+            return f"Player {player_to_remove.name.get(platform)} with Steam ID {steam_id} has been removed."
+        return f"Player with Steam ID {steam_id} has been removed."
+    else:
+        return f"Player with Steam ID {steam_id} not found."
+
 def save_players_to_csv(players, filename="players.csv"):
     with open(filename, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)

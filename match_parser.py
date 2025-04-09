@@ -1,14 +1,8 @@
-from typing import Any
 import requests
-import datetime
 import aiohttp
 import asyncio
+from shift_master import load_players_from_csv
 
-#import schedule
-from telegram import Bot
-from datetime import datetime, timedelta
-import shift_master
-from shift_master import Player, players
 
 
 async def get_matches(session, steam_id):
@@ -29,6 +23,7 @@ async def request_parse(session, match_id):
         return response.json
 
 async def check_and_parse_matches():
+    players = load_players_from_csv()
     async with aiohttp.ClientSession() as session:
         tasks = [get_matches(session, player.steam_id) for player in players]
         results = await asyncio.gather(*tasks)

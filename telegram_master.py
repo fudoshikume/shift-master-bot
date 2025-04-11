@@ -1,4 +1,4 @@
-import datetime
+from datetime import time
 from telegram import Bot, Update
 from telegram.ext import CommandHandler, Application, ContextTypes
 from shift_master import check_and_notify, full_stats, add_player, remove_player
@@ -6,6 +6,9 @@ from match_parser import check_and_parse_matches
 import asyncio
 from dotenv import load_dotenv
 import os
+from zoneinfo import ZoneInfo
+
+kyiv_zone = ZoneInfo("Europe/Kyiv")
 
 load_dotenv()  # Load variables from .env file
 
@@ -88,8 +91,11 @@ async def main():
     app.add_handler(CommandHandler("removeplayer", removeplayer))
 
     # Schedule recurring tasks
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)  # every 10 min
-    app.job_queue.run_daily(lambda context: asyncio.create_task(send_stats()), time=datetime.time(hour=3, minute=0))  # at 3:00 AM
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=60)  # every 10 min
+    app.job_queue.run_daily(
+        lambda context: asyncio.create_task(send_stats()),
+        time=time(hour=3, minute=0, tzinfo=kyiv_zone)
+    )
     app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=3600)  # every hour
 
     await app.initialize()

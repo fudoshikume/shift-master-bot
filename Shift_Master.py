@@ -4,20 +4,9 @@ import datetime
 import asyncio
 import csv
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-def get_match_end_time(match) -> datetime.timestamp:
-    match_start_game = datetime.fromtimestamp(match['start_time'])
-    match_duration = timedelta(seconds=match['duration'])
-    match_end_time = match_start_game + match_duration
-    return match_end_time
 
-def player_win(match) -> True | False:
-    player_radiant = (match['player_slot'] <= 127)
-    if player_radiant == match['radiant_win']:
-        return True
-    else:
-        return False
 
 ### below goes class Player with attr and methods for handling:
 class Player:
@@ -29,6 +18,21 @@ class Player:
         self.total_wins = 0
         self.total_losses = 0
         self.total_duration = 0
+
+    @staticmethod
+    def get_match_end_time(match) -> datetime.timestamp:
+        match_start_game = datetime.fromtimestamp(match['start_time'], tz=timezone.utc)
+        match_duration = timedelta(seconds=match['duration'])
+        match_end_time = match_start_game + match_duration
+        return match_end_time
+
+    @staticmethod
+    def player_win(match) -> True | False:
+        player_radiant = (match['player_slot'] <= 127)
+        if player_radiant == match['radiant_win']:
+            return True
+        else:
+            return False
 
     async def get_recent_matches(self):
         """returns json view of player's recent matches"""
@@ -44,22 +48,20 @@ class Player:
 
     async def fetch_and_count_games(self, platform) -> str | None:
         """returns text stats representation (games, solo, wins, losses within last 24H) for 1 Player obj"""
-        players = load_players_from_csv()
         matches = await self.get_recent_matches()
         if matches is None:
             return None
-        time_marker = datetime.now() - timedelta(days=1)
+        time_marker = datetime.now(timezone.utc) - timedelta(days=1)
 
         for match in matches:
-            match_end_time = get_match_end_time(match)
+            match_end_time = Player.get_match_end_time(match)
             self.total_duration += match['duration']
             #print(f"match: {match['match_id']}\nparty size: {match['party_size']}\nend time:{match_end_time}")
             if match_end_time >= time_marker:
                 self.total_games += 1
-                #parsematch(match["match_id"])
                 if match["party_size"] == 1:
                     self.solo_games += 1
-                if player_win(match):
+                if Player.player_win(match):
                     self.total_wins += 1
 
         self.total_losses = self.total_games - self.total_wins
@@ -79,18 +81,18 @@ class Player:
 
 async def get_solo_losses(platform) -> list:
     """f() that returns list of player.name in Players, who have lost solo games within last 60 min"""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     one_hour_ago = now - timedelta(hours=1)
     solo_loss_players = []
     players = load_players_from_csv()
     for player in players:
         matches = await player.get_recent_matches()
         for match in matches:
-            match_end_time = get_match_end_time(match)
+            match_end_time = Player.get_match_end_time(match)
             if match_end_time < one_hour_ago:
                 break  # Matches are sorted, no need to check older ones
 
-            if (not player_win(match)) and (match.get("party_size") == 1 | 0):
+            if (not Player.player_win(match)) and (match.get("party_size") < 2):
                 solo_loss_players.append(player.name.get(platform))
                 break
     return solo_loss_players

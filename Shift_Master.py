@@ -1,106 +1,109 @@
-from typing import Any
 import requests
 import datetime
 import asyncio
 import csv
 import json
+import random
 from datetime import datetime, timedelta, timezone
-
-
+from core import names
 
 ### below goes class Player with attr and methods for handling:
 class Player:
     def __init__(self, steam_id, name):
         self.steam_id = steam_id
         self.name = name
-        self.total_games = 0
-        self.solo_games = 0
-        self.total_wins = 0
-        self.total_losses = 0
+        self.daily_games = 0
+        self.daily_solo = 0
+        self.daily_wins = 0
+        self.daily_losses = 0
         self.total_duration = 0
 
     @staticmethod
-    def get_match_end_time(match) -> datetime.timestamp:
-        match_start_game = datetime.fromtimestamp(match['start_time'], tz=timezone.utc)
-        match_duration = timedelta(seconds=match['duration'])
-        match_end_time = match_start_game + match_duration
-        return match_end_time
+    def validate_steam_id(steam_id: int) -> str | None:
+        """Validate a Steam ID using OpenDota API and return nickname if valid."""
+        try:
+            response = requests.get(f"https://api.opendota.com/api/players/{steam_id}")
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+            profile = data.get("profile")
+            if not profile:
+                return None
+
+            return profile.get("personaname")
+        except Exception:
+            return None
 
     @staticmethod
-    def player_win(match) -> True | False:
-        player_radiant = (match['player_slot'] <= 127)
-        if player_radiant == match['radiant_win']:
-            return True
+    def get_accusative_case(number: int, word_forms: tuple[str, str, str]) -> str:
+        if 11 <= number % 100 <= 14:
+            return word_forms[2]
+        elif number % 10 == 1:
+            return word_forms[0]
+        elif 2 <= number % 10 <= 4:
+            return word_forms[1]
         else:
-            return False
+            return word_forms[2]
 
-    async def get_recent_matches(self):
-        """returns json view of player's recent matches"""
-        url = f'https://api.opendota.com/api/players/{self.steam_id}/Matches'
-        limit = {"date": 1}
-        response = requests.get(url, params=limit)
+    def update_daily_stats(self, matches: list):
+        """Updates this player's daily stats based on recent matches."""
+        now = datetime.now(timezone.utc)
+        recent_matches = [
+            m for m in matches
 
-        if response.status_code != 200:
-            print("Error fetching data from OpenDota API.")
-            return None
-        matches = response.json()
-        return matches
+            if self.steam_id in m.player_ids and m.endtime and now - m.endtime <= timedelta(days=1)
+        ]
+
+        self.daily_games = len(recent_matches)
+        self.daily_wins = sum(1 for m in recent_matches if m.win_status)
+        self.daily_losses = sum(1 for m in recent_matches if not m.win_status)
+        self.daily_solo = sum(1 for m in recent_matches if m.solo_status)
+        self.total_duration = sum(m.duration for m in recent_matches if m.duration is not None)
 
     async def fetch_and_count_games(self, platform) -> str | None:
-        """returns text stats representation (games, solo, wins, losses within last 24H) for 1 Player obj"""
-        matches = await self.get_recent_matches()
-        if matches is None:
-            return None
-        time_marker = datetime.now(timezone.utc) - timedelta(days=1)
-
-        for match in matches:
-            match_end_time = Player.get_match_end_time(match)
-            self.total_duration += match['duration']
-            #print(f"match: {match['match_id']}\nparty size: {match['party_size']}\nend time:{match_end_time}")
-            if match_end_time >= time_marker:
-                self.total_games += 1
-                if match["party_size"] == 1:
-                    self.solo_games += 1
-                if Player.player_win(match):
-                    self.total_wins += 1
-
-        self.total_losses = self.total_games - self.total_wins
-
-        if not self.total_games:
+        if not self.daily_games:
             player_stats = f'У {self.name.get(platform)} сьогодні відгул\n'
         else:
-            player_stats = f'Братішка {self.name.get(platform)} зіграв загалом {self.total_games} каток! ({self.total_wins} розджЕбав, {self.total_losses} закинув), \nНа це вбив {timedelta(seconds=self.total_duration)} свого життя.\nВсоляново награв {self.solo_games}! WP, GN ^_^!\n'
+            game_cases = ('катку', 'катки', 'каток')
+            solo_text = f"Всоляново награв {self.daily_solo} {Player.get_accusative_case(self.daily_solo, game_cases)}."
+            if not self.daily_solo:
+                solo_text = "Всоляново не грав"
+            player_stats = f'{random.choice(names)} {self.name.get(platform)} зіграв загалом {self.daily_games} {Player.get_accusative_case(self.daily_games, game_cases)}! ({self.daily_wins} розджЕбав, {self.daily_losses} закинув), \nНа це вбив {timedelta(seconds=self.total_duration)} свого життя.\n{solo_text} WP, GN ^_^!\n'
         return player_stats
 
     def clear_stats(self):
-        self.total_games = 0
-        self.solo_games = 0
-        self.total_wins = 0
-        self.total_losses = 0
+        self.daily_games = 0
+        self.daily_solo = 0
+        self.daily_wins = 0
+        self.daily_losses = 0
         self.total_duration = 0
 
-async def get_solo_losses(platform) -> list:
+async def get_last_hour_solo_losers(matches: list, players: list, platform) -> list:
     """f() that returns list of player.name in Players, who have lost solo games within last 60 min"""
     now = datetime.now(timezone.utc)
     one_hour_ago = now - timedelta(hours=1)
-    solo_loss_players = []
-    players = load_players_from_csv()
+    solo_losers = []
     for player in players:
-        matches = await player.get_recent_matches()
         for match in matches:
-            match_end_time = Player.get_match_end_time(match)
-            if match_end_time < one_hour_ago:
-                break  # Matches are sorted, no need to check older ones
+            if (
+                    player.steam_id in match.player_ids and
+                    match.solo_status and
+                    match.win_status is False and
+                    match.endtime and match.endtime >= one_hour_ago
+            ):
+                solo_losers.append(player.name.get(platform, player.name.get("telegram")))
+                break  # Don't double count this player, one solo loss is enough
 
-            if (not Player.player_win(match)) and (match.get("party_size") < 2):
-                solo_loss_players.append(player.name.get(platform))
-                break
-    return solo_loss_players
+    return solo_losers
 
 async def check_and_notify(platform) -> str:
-    """f() sends message to Telegram group based on result from get_solo_losses()"""
+    """f() returns message to messenger bot based on result from get_solo_losses()"""
+    from match_stats import Match
     message = [""]
-    solo_loss_players = await get_solo_losses(platform)
+    matches = Match.read_matches_from_csv("matchlog.csv")
+    players = load_players_from_csv("players.csv")
+    solo_loss_players = await get_last_hour_solo_losers(matches, players, platform)
     for player in solo_loss_players:
         message.append(f"{player}, НТ, старенький, вже як є :(")
     compiled_msg = "\n".join(message)
@@ -112,8 +115,8 @@ def load_players_from_csv(filename="players.csv"):
     with open(filename, mode="r", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in reader:
-            steam_id = row["steam_id"]
-            name = json.loads(row["name"])  # convert back from string to dict
+            steam_id = int(row["steam_id"])  # ← force int here
+            name = json.loads(row["name"])
             player = Player(steam_id, name)
             players.append(player)
     return players
@@ -154,20 +157,26 @@ def save_players_to_csv(players, filename="players.csv"):
         for player in players:
             writer.writerow([player.steam_id, json.dumps(player.name)])
 
-async def full_stats(platform) -> str:
-    '''this f() gets all players' 24H stats (by running fetch_and_count_games()) and sends it all in a TG group message'''
+async def collect_daily_stats(matches, players):
+    for player in players:
+        player.update_daily_stats(matches)
+
+async def generate_daily_report(platform, players):
     compiled_stats = [
-            "Стата за остатні 24 години:",
-            "---------------------------"
-        ]
-    player: Player | Any
-    message = ""
-    players = load_players_from_csv()
+        "Стата за остатні 24 години:",
+        "---------------------------"
+    ]
     for player in players:
         compiled_stats.append(await player.fetch_and_count_games(platform))
-        message = "\n".join(compiled_stats)
         player.clear_stats()
-    return message
+    return "\n".join(compiled_stats)
+
+async def full_stats(platform) -> str:
+    from match_stats import Match
+    players = load_players_from_csv()
+    matches = Match.read_matches_from_csv("matchlog.csv")
+    await collect_daily_stats(matches, players)
+    return await generate_daily_report(platform, players)
 
 #todo:
 

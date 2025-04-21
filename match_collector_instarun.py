@@ -4,10 +4,9 @@ from core import get_match_end_time, player_win
 async def fetch_and_log_matches_for_last_day():
     from match_stats import Match
     from shift_master import load_players_from_csv
+    from core import player_win, get_match_end_time  # If needed
 
     players = load_players_from_csv()
-    #known_ids = [p.steam_id for p in players]
-
     existing_matches = Match.read_matches_from_csv()
     existing_ids = {m.match_id for m in existing_matches}
     print(f"📦 Loaded {len(existing_ids)} existing match IDs")
@@ -44,11 +43,14 @@ async def fetch_and_log_matches_for_last_day():
                 if steam_id not in match_dict[match_id].player_ids:
                     match_dict[match_id].player_ids.append(steam_id)
 
+            # 🔄 Update known match IDs right away to avoid cross-player dupes
+            existing_ids.add(match_id)
+
     new_matches = list(match_dict.values())
     print(f"✅ Found {len(new_matches)} new matches")
 
     if new_matches:
-        Match.write_matches_to_csv(existing_matches + new_matches)
+        Match.write_matches_to_csv(new_matches)
         print(f"📝 matchlog.csv updated!")
     else:
         print("📭 No new matches to write.")

@@ -22,38 +22,38 @@ bot = Bot(token=TG_Token)
 
 async def send_stats():
     print('gathering stats')
-    await fetch_and_log_matches_for_last_day()
+    await fetch_and_log_matches_for_last_day(1)
     text = await full_stats(platform)
     await bot.sendMessage(chat_id=chatID, text=text)
 
 async def send_loss_stats():
-    await fetch_and_log_matches_for_last_day()
+    await fetch_and_log_matches_for_last_day(1)
     text = await check_and_notify(platform)
     if text:
         await bot.sendMessage(chat_id=chatID, text=text)
 
 async def send_weekly_stats():
-    await fetch_and_log_matches_for_last_day()
+    await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report("telegram")
     await bot.send_message(chat_id=chatID, text=message)
 
 async def weekly(update, context):
     await update.message.reply_text("👀*проглядає архіви*...")
-    await fetch_and_log_matches_for_last_day()
+    await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report(platform)
     await update.message.reply_text(message)
 
 # f() to handle /stats
 async def stats(update, context):
     await update.message.reply_text("*копається в гівні*...")
-    await fetch_and_log_matches_for_last_day()
+    await fetch_and_log_matches_for_last_day(1)
     result = await full_stats(platform)
     await update.message.reply_text(result)
 
 # f() to handle /losses
 async def losses(update, context):
     await update.message.reply_text("*Перевіряє на запах ділдаки*...")
-    await fetch_and_log_matches_for_last_day()
+    await fetch_and_log_matches_for_last_day(1)
     result = await check_and_notify(platform)
     if result:
         await update.message.reply_text(result)
@@ -196,8 +196,8 @@ async def main():
         lambda context: asyncio.create_task(send_stats()),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
     )
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day()), interval=21600)
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=3600)  # every hour
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600)
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every hour
     app.job_queue.run_daily(
         callback=send_weekly_stats,
         time=time(hour=15, minute=0),  # 15:00 UTC

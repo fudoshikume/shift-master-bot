@@ -1,18 +1,20 @@
-[project]
+[tool.poetry]
 name = "telegram-dota-bot"
 version = "0.1.0"
 description = "The bot allows interaction through commands to add and remove players, check player stats, and view solo losses."
-authors = [
-    {name = "Your Name",email = "you@example.com"}
-]
-license = {text = "null"}
+authors = ["Your Name <you@example.com>"]
+license = "null"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "python-telegram-bot (>=22.0,<23.0)"
-]
+packages = []
 
+# This disables package-mode (useful if you're not making a distributable package)
+package-mode = false
+# You can also just omit 'packages' or leave it empty
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+python-telegram-bot = "^22.0"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=1.7.0"]
 build-backend = "poetry.core.masonry.api"

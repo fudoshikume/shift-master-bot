@@ -240,8 +240,8 @@ async def main():
         lambda context: asyncio.create_task(send_stats()),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
     )
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600)
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every hour
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600) # every 6 hrs
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every 10 min
     app.job_queue.run_daily(
         callback=send_weekly_stats,
         time=time(hour=15, minute=0),  # 15:00 UTC

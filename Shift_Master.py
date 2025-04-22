@@ -5,7 +5,7 @@ import csv
 import json
 import random
 from datetime import datetime, timedelta, timezone
-from core import names
+from core import names, get_accusative_case
 
 ### below goes class Player with attr and methods for handling:
 class Player:
@@ -35,17 +35,6 @@ class Player:
         except Exception:
             return None
 
-    @staticmethod
-    def get_accusative_case(number: int, word_forms: tuple[str, str, str]) -> str:
-        if 11 <= number % 100 <= 14:
-            return word_forms[2]
-        elif number % 10 == 1:
-            return word_forms[0]
-        elif 2 <= number % 10 <= 4:
-            return word_forms[1]
-        else:
-            return word_forms[2]
-
     def update_daily_stats(self, matches: list):
         """Updates this player's daily stats based on recent matches."""
         now = datetime.now(timezone.utc)
@@ -66,10 +55,10 @@ class Player:
             player_stats = f'У {self.name.get(platform)} сьогодні відгул\n'
         else:
             game_cases = ('катку', 'катки', 'каток')
-            solo_text = f"Всоляново награв {self.daily_solo} {Player.get_accusative_case(self.daily_solo, game_cases)}."
+            solo_text = f"Всоляново награв {self.daily_solo} {get_accusative_case(self.daily_solo, game_cases)}."
             if not self.daily_solo:
                 solo_text = "Всоляново не грав"
-            player_stats = f'{random.choice(names)} {self.name.get(platform)} зіграв загалом {self.daily_games} {Player.get_accusative_case(self.daily_games, game_cases)}! ({self.daily_wins} розджЕбав, {self.daily_losses} закинув), \nНа це вбив {timedelta(seconds=self.total_duration)} свого життя.\n{solo_text} WP, GN ^_^!\n'
+            player_stats = f'{random.choice(names)} {self.name.get(platform)} зіграв загалом {self.daily_games} {get_accusative_case(self.daily_games, game_cases)}! ({self.daily_wins} розджЕбав, {self.daily_losses} закинув), \nНа це вбив {timedelta(seconds=self.total_duration)} свого життя.\n{solo_text} WP, GN ^_^!\n'
         return player_stats
 
     def clear_stats(self):

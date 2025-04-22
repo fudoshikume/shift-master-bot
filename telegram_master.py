@@ -1,14 +1,16 @@
 from datetime import time
 from telegram import Bot, Update
-from telegram.ext import CommandHandler, Application, ContextTypes
+from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
+from match_parser_instarun import run_loop
 import asyncio
 from dotenv import load_dotenv
 import os
 from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
+from core import get_accusative_case, day_cases
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
@@ -17,6 +19,7 @@ load_dotenv()  # Load variables from .env file
 TG_Token = os.getenv("TELEGRAM_TOKEN")
 platform="telegram"
 chatID = os.getenv("CHAT_ID")
+loop_task = None
 
 bot = Bot(token=TG_Token)
 
@@ -176,9 +179,49 @@ async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = remove_player(steam_id, platform="telegram")
     await update.message.reply_text(response)
 
+async def fetch_and_log_matches(update: Update, context: CallbackContext):
+    days_before = int(context.args[0]) if context.args else 1  # Default to 1 day if no argument is passed
+    await update.message.reply_text(f"Гортаю звіти за {days_before} {get_accusative_case(days_before, day_cases)}")
+    await fetch_and_log_matches_for_last_day(days=days_before)
+    await update.message.reply_text(f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
+
+async def start_parser(update, context):
+    """Start the parser loop."""
+    global loop_task
+    try:
+        days = int(context.args[0]) if context.args else 7  # Default to 7 days
+        if loop_task and not loop_task.done():
+            await update.message.reply_text("Парсер вже працює!")
+            return
+
+        # Define the callback function to send a message when parsing is done
+        async def send_completion_message(message):
+            await update.message.reply_text(message)
+
+        # Start the loop with the 'days' parameter and the callback
+        loop_task = asyncio.create_task(run_loop(days, send_message_callback=send_completion_message))
+        await update.message.reply_text(f"Парсер запущено, робимо матчі за остатні {days} {get_accusative_case(days, day_cases)}.")
+    except Exception as e:
+        await update.message.reply_text(f"Шось пішло не так: {e}")
+
+async def stop_parser(update, context):
+    """Stop the parser loop."""
+    global loop_task
+    if loop_task and not loop_task.done():
+        loop_task.cancel()
+        await update.message.reply_text("Парсер зупинено.")
+    else:
+        await update.message.reply_text("Нема шо зупиняти.")
+
+# Setup the Telegram bot handlers
+def setup_handlers(app):
+    app.add_handler(CommandHandler("parse", start_parser))  # Start command
+    app.add_handler(CommandHandler("stopparse", stop_parser))  # Stop command
+
 async def main():
     app = Application.builder().token(TG_Token).build()
 
+    setup_handlers(app)
     # Register command handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
@@ -189,6 +232,7 @@ async def main():
     app.add_handler(CommandHandler("yes", confirm_add))
     app.add_handler(CommandHandler("no", cancel_add))
     app.add_handler(CommandHandler("weekly", weekly))
+    app.add_handler(CommandHandler("collect", fetch_and_log_matches))
 
     # Schedule recurring tasks
     app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)  # every 10 min

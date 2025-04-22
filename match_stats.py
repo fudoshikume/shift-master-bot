@@ -5,20 +5,22 @@ import os
 import json
 from core import player_win, get_match_end_time, names
 from datetime import datetime, timedelta, timezone
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 from collections import Counter
 import random
 
 
 @dataclass
+@dataclass
 class Match:
     match_id: int
-    player_ids: List[int] = field(default_factory=list)
-    win_status: Optional[bool] = None
-    solo_status: Optional[bool] = None
-    endtime: Optional[datetime] = None
-    duration: int = 0
+    player_ids: List[int]
+    win_status: bool
+    solo_status: bool
+    endtime: datetime
+    duration: int
+    is_parsed: bool = False  # ✅ default to False
 
     @staticmethod
     async def get_recent_matches(steam_id: int, days: int = 1) -> list:
@@ -41,14 +43,12 @@ class Match:
         for raw in raw_matches:
             match_id = raw["match_id"]
 
-            # Skip if already known
             if match_id in known_ids:
                 continue
 
-            # Look for other known players who were in this match
             participants = []
             for pid in known_ids:
-                if pid == raw.get("account_id"):  # This might vary based on the API
+                if pid == raw.get("account_id"):
                     participants.append(pid)
 
             match = Match(
@@ -57,7 +57,8 @@ class Match:
                 win_status=player_win(raw),
                 solo_status=raw.get("party_size") == 1,
                 endtime=get_match_end_time(raw),
-                duration=raw.get("duration", 0)
+                duration=raw.get("duration", 0),
+                is_parsed=raw.get("version") is not None  # ✅ mark as parsed if version exists
             )
 
             new_matches.append(match)
@@ -65,15 +66,17 @@ class Match:
         return new_matches
 
     @staticmethod
-    def write_matches_to_csv(matches: list, filename='matchlog.csv'):
+    def write_matches_to_csv(matches: list, filename='matchlog.csv', overwrite=False):
         file_exists = os.path.exists(filename)
 
-        with open(filename, 'a', newline='', encoding='utf-8') as f:
+        mode = 'w' if overwrite else 'a'
+
+        with open(filename, mode, newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
 
-            # Write header if file is new
-            if not file_exists:
-                writer.writerow(["match_id", "player_ids", "win_status", "solo_status", "endtime", "duration"])
+            if not file_exists or overwrite:
+                writer.writerow(
+                    ["match_id", "player_ids", "win_status", "solo_status", "endtime", "duration", "is_parsed"])
 
             for match in matches:
                 writer.writerow([
@@ -82,23 +85,26 @@ class Match:
                     int(match.win_status),
                     int(match.solo_status),
                     match.endtime.isoformat() if match.endtime else "",
-                    match.duration
+                    match.duration,
+                    int(match.is_parsed)  # ✅ now always int, always defined
                 ])
 
-    @staticmethod
     def read_matches_from_csv(filename='matchlog.csv') -> list:
         matches = []
 
         if not os.path.exists(filename):
-            return matches  # No file yet = no matches
+            return matches
 
         try:
             with open(filename, newline='', encoding="utf-8") as f:
-                reader = csv.DictReader(f)  # ← Use DictReader to read headers
+                reader = csv.DictReader(f)
 
                 for row in reader:
                     if not row["match_id"] or row["match_id"] == "match_id":
-                        continue  # skip empty or malformed rows
+                        continue
+
+                    is_parsed_str = row.get("is_parsed", "")
+                    is_parsed = bool(int(is_parsed_str)) if is_parsed_str.strip() else False
 
                     match = Match(
                         match_id=int(row["match_id"]),
@@ -106,12 +112,13 @@ class Match:
                         win_status=json.loads(row["win_status"]),
                         solo_status=json.loads(row["solo_status"]),
                         endtime=datetime.fromisoformat(row["endtime"]) if row["endtime"] else None,
-                        duration=int(row["duration"]) if row["duration"] else 0
+                        duration=int(row["duration"]) if row["duration"] else 0,
+                        is_parsed=is_parsed
                     )
                     matches.append(match)
 
         except Exception as e:
-            print(f"[Error] Reading matchlog: {e}")
+            print(f"Error reading matches from CSV: {e}")
 
         return matches
 

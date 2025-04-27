@@ -225,7 +225,7 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
 
     # Best winrate and worst lossrate players
     best_winrate_player = max(player_stats.items(), key=lambda x: x[1]['winrate'])
-    worst_lossrate_player = min(player_stats.items(), key=lambda x: x[1]['lossrate'])
+    worst_lossrate_player = max(player_stats.items(), key=lambda x: x[1]['lossrate'])
 
     top_played_id, top_played_count = games_played.most_common(1)[0]
     top_win_id, top_win_count = wins_by_player.most_common(1)[0]
@@ -242,8 +242,8 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
 
     # Prepare the player stats list
     player_stats_list = '\n'.join(
-        [f"{random.choice(names)} {name} - Ігор: {stats['games_played']}, Перемог: {stats['wins']} ({stats['winrate']}%) | "
-         f"Соло: {stats['solo_games']} | Поразок: {stats['games_played'] - stats['wins']} ({stats['lossrate']}%)"
+        [f"{random.choice(names)} {name} - Ігор: {stats['games_played']}, Перемог: {stats['wins']} ({stats['winrate']}%) | Поразок: {stats['games_played'] - stats['wins']} ({stats['lossrate']}%) | "
+         f"Соло: {stats['solo_games']}"
          for name, stats in player_stats.items()]
     )
 

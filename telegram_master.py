@@ -71,10 +71,14 @@ async def weekly(update: Update, context: CallbackContext):
 
 # f() to handle /stats
 async def stats(update: Update, context: CallbackContext):
-    await update.message.reply_text("*копається в гівні*...")
-    await fetch_and_log_matches_for_last_day(1)
-    result = await full_stats(platform)
-    await update.message.reply_text(result)
+    try:
+        print("Stats command received!")
+        await update.message.reply_text("*копається в гівні*...")
+        await fetch_and_log_matches_for_last_day(1)
+        result = await full_stats(platform)
+        await update.message.reply_text(result)
+    except Exception as e:
+        print(f"Error in stats command: {e}")
 
 
 # f() to handle /losses

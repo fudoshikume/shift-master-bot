@@ -294,12 +294,12 @@ async def main():
     retry_delay = 5
 
     try:
-        # Initialize the app and start polling
         print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         for attempt in range(max_retries):
             try:
                 await app.initialize()
-                await app.run_polling()  # Use run_polling() instead of start_polling()
+                # Using run_polling instead of start_polling
+                await app.run_polling()  # Correct method to start polling and job queue
                 await bot.send_message(chat_id=chatID, text="на проводі")
                 print("Bot successfully started and polling")
                 break

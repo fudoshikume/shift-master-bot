@@ -257,10 +257,10 @@ def setup_handlers(app):
 
 
 async def main():
+    # Initialize the Application with your bot token
     app = Application.builder().token(TG_Token).build()
 
-    setup_handlers(app)
-    # Register command handlers
+    # Setup the command handlers for the bot
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("losses", losses))
@@ -273,34 +273,22 @@ async def main():
     app.add_handler(CommandHandler("collect", fetch_and_log_matches))
 
     # Schedule recurring tasks
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
-                                interval=600)  # every 10 min
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)  # every 10 min
     app.job_queue.run_repeating(heartbeat, interval=60, first=0)
-    app.job_queue.run_daily(
-        lambda context: asyncio.create_task(send_stats()),
-        time=time(hour=3, minute=0, tzinfo=kyiv_zone)
-    )
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)),
-                                interval=21600)  # every 6 hrs
+    app.job_queue.run_daily(lambda context: asyncio.create_task(send_stats()), time=time(hour=3, minute=0, tzinfo=kyiv_zone))
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600)  # every 6 hrs
     app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every 10 min
-    app.job_queue.run_daily(
-        callback=send_weekly_stats,
-        time=time(hour=15, minute=0),  # 15:00 UTC
-        days=(0,),  # Sunday (0 = Monday, so 6 = Saturday)
-        name="weekly_report"
-    )
+    app.job_queue.run_daily(callback=send_weekly_stats, time=time(hour=15, minute=0), days=(0,), name="weekly_report")
 
     max_retries = 5
     retry_delay = 5
 
     try:
-        # Initialize the app and start polling
         print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         for attempt in range(max_retries):
             try:
                 await app.initialize()
-                await app.start()
-                await bot.send_message(chat_id=chatID, text="на проводі")
+                await bot.send_message(chat_id=chatID, text="на проводі")  # Send the "I'm alive" message
                 print("Bot successfully started and polling")
                 break
             except Exception as e:
@@ -313,8 +301,11 @@ async def main():
             print("Failed to start the bot after retries.")
             return
 
-        # Ensure the bot is still running and verify its connection
-        while True:  # Inner loop to maintain the bot running
+        # Start polling for updates and process commands
+        await app.start_polling()
+
+        # Keep the bot running
+        while True:  # Keep the bot alive indefinitely
             try:
                 await asyncio.sleep(60)  # Check every minute
                 print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -327,8 +318,6 @@ async def main():
                 print(f"Error type: {type(e).__name__}")
                 print(f"Error details: {str(e)}")
                 print(f"Connection will be retried...")
-                import traceback
-                print(f"Traceback:\n{traceback.format_exc()}")
                 continue
 
     except Exception as e:

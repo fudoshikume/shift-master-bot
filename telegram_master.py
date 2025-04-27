@@ -301,7 +301,7 @@ async def main():
             try:
                 await app.initialize()
                 # Directly run polling without managing the event loop yourself
-                await app.run_polling()  # This starts the event loop and handles retries internally
+                await app.updater.start_polling()  # This starts the event loop and handles retries internally
                 await bot.send_message(chat_id=chatID, text="на проводі")
                 print("Bot successfully started and polling")
                 break

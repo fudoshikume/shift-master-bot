@@ -1,7 +1,6 @@
 from datetime import time, datetime
 from telegram import Bot, Update
 from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext
-from keep_alive import keep_alive
 import aiohttp
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
@@ -17,8 +16,6 @@ import asyncio
 
 sys.path.append(os.path.dirname(__file__))
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
-
-keep_alive()
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
@@ -278,7 +275,7 @@ async def main():
     # Schedule recurring tasks
     app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
                                 interval=600)  # every 10 min
-    app.job_queue.run_repeating(heartbeat, interval=180, first=0)
+    app.job_queue.run_repeating(heartbeat, interval=60, first=0)
     app.job_queue.run_daily(
         lambda context: asyncio.create_task(send_stats()),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)

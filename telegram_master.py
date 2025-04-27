@@ -62,7 +62,7 @@ async def send_weekly_stats():
     await bot.send_message(chat_id=chatID, text=message)
 
 
-async def weekly(update, context):
+async def weekly(update: Update, context: CallbackContext):
     await update.message.reply_text("👀*проглядає архіви*...")
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report(platform)
@@ -70,7 +70,7 @@ async def weekly(update, context):
 
 
 # f() to handle /stats
-async def stats(update, context):
+async def stats(update: Update, context: CallbackContext):
     await update.message.reply_text("*копається в гівні*...")
     await fetch_and_log_matches_for_last_day(1)
     result = await full_stats(platform)
@@ -78,7 +78,7 @@ async def stats(update, context):
 
 
 # f() to handle /losses
-async def losses(update, context):
+async def losses(update: Update, context: CallbackContext):
     await update.message.reply_text("*Перевіряє на запах ділдаки*...")
     await fetch_and_log_matches_for_last_day(1)
     result = await check_and_notify(platform)
@@ -89,12 +89,12 @@ async def losses(update, context):
 
 
 # f() to make sure bot is running
-async def start(update, context):
-    print("Received /start command")  # Log to see if this is triggered
+async def start(update: Update, context: CallbackContext):
+    print("Start command received!")  # Log to see if this is triggered
     await update.message.reply_text("Начальник зміни на проводі!")
 
 
-async def gethelp(update, context):
+async def gethelp(update: Update, context: CallbackContext):
     await update.message.reply_text(
         "Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
 

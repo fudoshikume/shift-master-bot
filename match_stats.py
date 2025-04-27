@@ -204,6 +204,29 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
                 return p.name.get(platform) or f"👤{pid}"
         return f"👤{pid}"
 
+    # Track player stats with winrate and lossrate
+    player_stats = {}
+    for player_id in games_played:
+        games_count = games_played[player_id]
+        wins_count = wins_by_player.get(player_id, 0)
+        losses_count = losses_by_player.get(player_id, 0)
+        solo_count = solo_games.get(player_id, 0)
+
+        winrate_player = round((wins_count / games_count) * 100, 1) if games_count > 0 else 0
+        lossrate_player = round((losses_count / games_count) * 100, 1) if games_count > 0 else 0
+
+        player_stats[get_name(player_id)] = {
+            'games_played': games_count,
+            'wins': wins_count,
+            'winrate': winrate_player,
+            'solo_games': solo_count,
+            'lossrate': lossrate_player,
+        }
+
+    # Best winrate and worst lossrate players
+    best_winrate_player = max(player_stats.items(), key=lambda x: x[1]['winrate'])
+    worst_lossrate_player = min(player_stats.items(), key=lambda x: x[1]['lossrate'])
+
     top_played_id, top_played_count = games_played.most_common(1)[0]
     top_win_id, top_win_count = wins_by_player.most_common(1)[0]
     top_loss_id, top_loss_count = losses_by_player.most_common(1)[0]
@@ -217,6 +240,13 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
     # Longest match info
     longest_match_str = get_longest_match(recent_matches, players)
 
+    # Prepare the player stats list
+    player_stats_list = '\n'.join(
+        [f"{random.choice(names)} {name} - Ігор: {stats['games_played']}, Перемог: {stats['wins']} ({stats['winrate']}%) | "
+         f"Соло: {stats['solo_games']} | Поразок: {stats['games_played'] - stats['wins']} ({stats['lossrate']}%)"
+         for name, stats in player_stats.items()]
+    )
+
     return (
         f"🗓️ *Тижневий звіт:*\n"
         f"🎮 Ігор зіграно: *{total}*\n"
@@ -224,7 +254,10 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
         f"👑 Найбільше ігор: {random.choice(names)} {top_played} ({top_played_count})\n"
         f"🥇 Найбільше перемог: {random.choice(names)} {top_win} ({top_win_count})\n"
         f"💀 Найбільше поразок: {random.choice(names)} {top_loss} ({top_loss_count})\n"
-        f"🧍‍♂️ Найбільше соло-ігор: {random.choice(names)} {top_solo} ({top_solo_count})"
+        f"🧍‍♂️ Найбільше соло-ігор: {random.choice(names)} {top_solo} ({top_solo_count})\n"
+        f"🏅 Найкращий Winrate: {best_winrate_player[0]} ({best_winrate_player[1]['winrate']}%)\n"
+        f"💔 Найгірший Lossrate: {worst_lossrate_player[0]} ({worst_lossrate_player[1]['lossrate']}%)\n"
+        f"📊 Статистика гравців:\n{player_stats_list}\n"
         f"{longest_match_str}"
     )
 

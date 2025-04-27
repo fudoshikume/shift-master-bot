@@ -33,11 +33,13 @@ async def heartbeat(context: CallbackContext):
     url = "https://shift-master-bot.onrender.com/"
     try:
         async with httpx.AsyncClient() as client:
-            print("Heartbeat check...")
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"Heartbeat check at {current_time}...")
             response = await client.get(url)
-            print(f"Heartbeat sent, status: {response.status_code}")
+            print(f"Heartbeat sent at {current_time}, status: {response.status_code}")
     except Exception as e:
-        print(f"Heartbeat failed: {e}")
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"Heartbeat failed at {current_time}: {e}")
 
 
 async def send_stats():
@@ -338,5 +340,5 @@ async def main():
         import traceback
         print(f"Traceback:\n{traceback.format_exc()}")
 
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

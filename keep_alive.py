@@ -22,7 +22,8 @@ if __name__ == '__main__':
     telegram_thread = threading.Thread(target=run_telegram_bot)
     telegram_thread.start()
 
-    # Run Flask on a specified port, like 5000, or use the Render environment variable
-    print(f"Running on port: {os.getenv('PORT', 5000)}")
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
-  # Use Render's specified port if available
+    # Get the port from environment variables or default to 5000
+    port = int(os.getenv('PORT', 5000))
+
+    # Run Flask on the specified port
+    app.run(host='0.0.0.0', port=port, use_reloader=False)  # use_reloader=False to avoid double running when in production

@@ -1,7 +1,8 @@
-from datetime import time
+from datetime import time, datetime
 from telegram import Bot, Update
 from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext
-from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
+from keep_alive import keep_alive
+import aiohttp
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
@@ -11,17 +12,29 @@ import os
 from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
+import sys
+
+sys.path.append(os.path.dirname(__file__))
+from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
+
+keep_alive()
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
 load_dotenv()  # Load variables from .env file
 
 TG_Token = os.getenv("TELEGRAM_TOKEN")
-platform="telegram"
+platform = "telegram"
 chatID = os.getenv("CHAT_ID")
 loop_task = None
 
 bot = Bot(token=TG_Token)
+
+
+async def heartbeat(context):
+    async with aiohttp.ClientSession() as session:
+        await session.get("https://26a5129c-0712-4b89-b132-e77bac378232-00-2n2sg69a1819x.spock.replit.dev")
+
 
 async def send_stats():
     print('gathering stats')
@@ -29,16 +42,19 @@ async def send_stats():
     text = await full_stats(platform)
     await bot.sendMessage(chat_id=chatID, text=text)
 
+
 async def send_loss_stats():
     await fetch_and_log_matches_for_last_day(1)
     text = await check_and_notify(platform)
     if text:
         await bot.sendMessage(chat_id=chatID, text=text)
 
+
 async def send_weekly_stats():
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report("telegram")
     await bot.send_message(chat_id=chatID, text=message)
+
 
 async def weekly(update, context):
     await update.message.reply_text("👀*проглядає архіви*...")
@@ -46,12 +62,14 @@ async def weekly(update, context):
     message = generate_weekly_report(platform)
     await update.message.reply_text(message)
 
+
 # f() to handle /stats
 async def stats(update, context):
     await update.message.reply_text("*копається в гівні*...")
     await fetch_and_log_matches_for_last_day(1)
     result = await full_stats(platform)
     await update.message.reply_text(result)
+
 
 # f() to handle /losses
 async def losses(update, context):
@@ -63,12 +81,17 @@ async def losses(update, context):
     else:
         await update.message.reply_text("За останню годину в соло ніхто не програвав")
 
+
 # f() to make sure bot is running
 async def start(update, context):
+    print("Received /start command")  # Log to see if this is triggered
     await update.message.reply_text("Начальник зміни на проводі!")
 
+
 async def gethelp(update, context):
-    await update.message.reply_text("Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
+    await update.message.reply_text(
+        "Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
+
 
 async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
@@ -118,6 +141,7 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name=f"pending_add_{update.effective_user.id}"
     )
 
+
 async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     pending_data = context.application.user_data.get(user_id, {}).get("pending_add")
@@ -141,6 +165,7 @@ async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if job:
         job.schedule_removal()
 
+
 async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     pending = context.application.user_data.get(user_id, {}).get("pending_add")
@@ -156,6 +181,7 @@ async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("❌ Додавання скасовано.")
 
+
 async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
     data = context.job.data
     chat_id = data["chat_id"]
@@ -169,6 +195,7 @@ async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
             text="⌛️ Час на підтвердження вийшов. Гравця не додано."
         )
 
+
 async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Command to remove a player by their Steam ID"""
     if len(context.args) < 1:
@@ -179,11 +206,14 @@ async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = remove_player(steam_id, platform="telegram")
     await update.message.reply_text(response)
 
+
 async def fetch_and_log_matches(update: Update, context: CallbackContext):
     days_before = int(context.args[0]) if context.args else 1  # Default to 1 day if no argument is passed
     await update.message.reply_text(f"Гортаю звіти за {days_before} {get_accusative_case(days_before, day_cases)}")
     await fetch_and_log_matches_for_last_day(days=days_before)
-    await update.message.reply_text(f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
+    await update.message.reply_text(
+        f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
+
 
 async def start_parser(update, context):
     """Start the parser loop."""
@@ -200,9 +230,11 @@ async def start_parser(update, context):
 
         # Start the loop with the 'days' parameter and the callback
         loop_task = asyncio.create_task(run_loop(days, send_message_callback=send_completion_message))
-        await update.message.reply_text(f"Парсер запущено, робимо матчі за остатні {days} {get_accusative_case(days, day_cases)}.")
+        await update.message.reply_text(
+            f"Парсер запущено, робимо матчі за остатні {days} {get_accusative_case(days, day_cases)}.")
     except Exception as e:
         await update.message.reply_text(f"Шось пішло не так: {e}")
+
 
 async def stop_parser(update, context):
     """Stop the parser loop."""
@@ -213,10 +245,12 @@ async def stop_parser(update, context):
     else:
         await update.message.reply_text("Нема шо зупиняти.")
 
+
 # Setup the Telegram bot handlers
 def setup_handlers(app):
     app.add_handler(CommandHandler("parse", start_parser))  # Start command
     app.add_handler(CommandHandler("stopparse", stop_parser))  # Stop command
+
 
 async def main():
     app = Application.builder().token(TG_Token).build()
@@ -235,12 +269,15 @@ async def main():
     app.add_handler(CommandHandler("collect", fetch_and_log_matches))
 
     # Schedule recurring tasks
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)  # every 10 min
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
+                                interval=600)  # every 10 min
+    app.job_queue.run_repeating(heartbeat, interval=180, first=0)
     app.job_queue.run_daily(
         lambda context: asyncio.create_task(send_stats()),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
     )
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600) # every 6 hrs
+    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)),
+                                interval=21600)  # every 6 hrs
     app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every 10 min
     app.job_queue.run_daily(
         callback=send_weekly_stats,
@@ -249,10 +286,63 @@ async def main():
         name="weekly_report"
     )
 
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
+    max_retries = 5
+    retry_delay = 5
 
-    await asyncio.sleep(float('inf'))  # Keeps everything running
+    while True:  # Outer loop for automatic restart
+        try:
+            print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            for attempt in range(max_retries):
+                try:
+                    await app.initialize()
+                    await app.start()
+                    await app.updater.start_polling(
+                        drop_pending_updates=True,
+                        allowed_updates=["message"]
+                    )
+                    print("Bot successfully started and polling")
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(f"Connection attempt {attempt + 1} failed: {e}")
+                        await asyncio.sleep(retry_delay)
+                    else:
+                        raise
+
+            while True:  # Inner loop for normal operation
+                try:
+                    await asyncio.sleep(60)  # Check every minute
+                    print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    await bot.get_me()  # Verify connection to Telegram
+                except asyncio.CancelledError:
+                    print("Bot task was cancelled")
+                    raise
+                except Exception as e:
+                    print(f"Error in main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"Error type: {type(e).__name__}")
+                    print(f"Error details: {str(e)}")
+                    print(f"Connection will be retried...")
+                    import traceback
+                    print(f"Traceback:\n{traceback.format_exc()}")
+                    continue
+        except asyncio.CancelledError:
+            print("Bot shutdown requested")
+            break
+        except Exception as e:
+            print(f"Critical error at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error details: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
+            try:
+                if app.running:
+                    await app.stop()
+                    await app.shutdown()
+            except Exception as stop_error:
+                print(f"Error during shutdown: {stop_error}")
+            print("Attempting to restart in 5 seconds...")
+            await asyncio.sleep(5)
+            continue
+
 
 asyncio.run(main())

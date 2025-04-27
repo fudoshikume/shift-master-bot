@@ -296,56 +296,49 @@ async def main():
     max_retries = 5
     retry_delay = 5
 
-    while True:  # Outer loop for automatic restart
-        try:
-            print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            for attempt in range(max_retries):
-                try:
-                    await app.initialize()
-                    await app.start()
-                    print("Bot successfully started and polling")
-                    break
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        print(f"Connection attempt {attempt + 1} failed: {e}")
-                        await asyncio.sleep(retry_delay)
-                    else:
-                        raise
-
-            while True:  # Inner loop for normal operation
-                try:
-                    await asyncio.sleep(60)  # Check every minute
-                    print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    await bot.get_me()  # Verify connection to Telegram
-                except asyncio.CancelledError:
-                    print("Bot task was cancelled")
-                    raise
-                except Exception as e:
-                    print(f"Error in main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    print(f"Error type: {type(e).__name__}")
-                    print(f"Error details: {str(e)}")
-                    print(f"Connection will be retried...")
-                    import traceback
-                    print(f"Traceback:\n{traceback.format_exc()}")
-                    continue
-        except asyncio.CancelledError:
-            print("Bot shutdown requested")
-            break
-        except Exception as e:
-            print(f"Critical error at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Error type: {type(e).__name__}")
-            print(f"Error details: {str(e)}")
-            import traceback
-            print(f"Traceback:\n{traceback.format_exc()}")
+    try:
+        # Initialize the app and start polling
+        print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        for attempt in range(max_retries):
             try:
-                if app.running:
-                    await app.stop()
-                    await app.shutdown()
-            except Exception as stop_error:
-                print(f"Error during shutdown: {stop_error}")
-            print("Attempting to restart in 5 seconds...")
-            await asyncio.sleep(5)
-            continue
+                await app.initialize()
+                await app.start()
+                print("Bot successfully started and polling")
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"Connection attempt {attempt + 1} failed: {e}")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    raise
+        else:
+            print("Failed to start the bot after retries.")
+            return
+
+        # Ensure the bot is still running and verify its connection
+        while True:  # Inner loop to maintain the bot running
+            try:
+                await asyncio.sleep(60)  # Check every minute
+                print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                await bot.get_me()  # Verify connection to Telegram
+            except asyncio.CancelledError:
+                print("Bot task was cancelled")
+                break
+            except Exception as e:
+                print(f"Error in main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Error type: {type(e).__name__}")
+                print(f"Error details: {str(e)}")
+                print(f"Connection will be retried...")
+                import traceback
+                print(f"Traceback:\n{traceback.format_exc()}")
+                continue
+
+    except Exception as e:
+        print(f"Critical error at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error details: {str(e)}")
+        import traceback
+        print(f"Traceback:\n{traceback.format_exc()}")
 
 
 asyncio.run(main())

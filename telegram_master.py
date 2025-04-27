@@ -32,10 +32,11 @@ loop_task = None
 bot = Bot(token=TG_Token)
 
 
-async def heartbeat():
+async def heartbeat(context: CallbackContext):
     url = "https://shift-master-bot.onrender.com/"
     try:
         async with httpx.AsyncClient() as client:
+            print("Heartbeat check...")
             response = await client.get(url)
             print(f"Heartbeat sent, status: {response.status_code}")
     except Exception as e:

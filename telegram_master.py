@@ -6,13 +6,14 @@ import aiohttp
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
-import asyncio
 from dotenv import load_dotenv
 import os
 from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
 import sys
+import httpx
+import asyncio
 
 sys.path.append(os.path.dirname(__file__))
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
@@ -31,9 +32,14 @@ loop_task = None
 bot = Bot(token=TG_Token)
 
 
-async def heartbeat(context):
-    async with aiohttp.ClientSession() as session:
-        await session.get("https://26a5129c-0712-4b89-b132-e77bac378232-00-2n2sg69a1819x.spock.replit.dev")
+async def heartbeat():
+    url = "https://shift-master-bot.onrender.com/"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            print(f"Heartbeat sent, status: {response.status_code}")
+    except Exception as e:
+        print(f"Heartbeat failed: {e}")
 
 
 async def send_stats():

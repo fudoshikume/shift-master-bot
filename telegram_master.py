@@ -303,10 +303,6 @@ async def main():
                 try:
                     await app.initialize()
                     await app.start()
-                    await app.updater.start_polling(
-                        drop_pending_updates=True,
-                        allowed_updates=["message"]
-                    )
                     print("Bot successfully started and polling")
                     break
                 except Exception as e:

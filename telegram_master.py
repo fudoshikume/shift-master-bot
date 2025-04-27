@@ -300,6 +300,7 @@ async def main():
             try:
                 await app.initialize()
                 await app.start()
+                bot.send_message(chat_id=chatID, text="на проводі")
                 print("Bot successfully started and polling")
                 break
             except Exception as e:

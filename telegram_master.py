@@ -284,7 +284,7 @@ async def main():
 
     try:
         print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        await app.run_polling(drop_pending_updates=True)
+        await app.run_polling(drop_pending_updates=True)  # Start polling for messages
         print("Bot successfully started and polling")
         await app.bot.send_message(chat_id=chatID, text="на проводі")
     except Exception as e:
@@ -292,4 +292,5 @@ async def main():
         # Handle cleanup or retry logic here if necessary
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

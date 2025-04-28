@@ -1,8 +1,7 @@
 from datetime import time, datetime
-from telegram import Bot, Update
-from telegram.ext import (
-    Application, CommandHandler, ContextTypes, CallbackContext
-)
+from telegram import Update
+print(Update)
+from telegram.ext import Application, CommandHandler, ContextTypes
 import aiohttp
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
@@ -79,7 +78,7 @@ async def losses(update, context):
 
 
 # f() to make sure bot is running
-async def start(update, context):
+async def start(update: Update, context):
     print("Received /start command")  # Log to see if this is triggered
     await update.message.reply_text("Начальник зміни на проводі!")
 
@@ -203,7 +202,7 @@ async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 
-async def fetch_and_log_matches(update: Update, context: CallbackContext):
+async def fetch_and_log_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days_before = int(context.args[0]) if context.args else 1  # Default to 1 day if no argument is passed
     await update.message.reply_text(f"Гортаю звіти за {days_before} {get_accusative_case(days_before, day_cases)}")
     await fetch_and_log_matches_for_last_day(days=days_before)
@@ -286,7 +285,7 @@ async def main():
     try:
         print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         await app.initialize()  # Initialize the application
-        await app.start_polling(drop_pending_updates=True)
+        await app.run_polling(drop_pending_updates=True)
         print("Bot successfully started and polling")
         await app.bot.send_message(chat_id=chatID, text="на проводі")
     except Exception as e:

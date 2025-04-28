@@ -2,7 +2,6 @@ from datetime import time
 from telegram import Update, Bot
 from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player, generate_invoke_msg
-from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
 import asyncio

@@ -1,6 +1,8 @@
 from datetime import time, datetime
 from telegram import Bot, Update
-from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext
+from telegram.ext import (
+    Application, CommandHandler, ContextTypes, CallbackContext
+)
 import aiohttp
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
@@ -25,9 +27,6 @@ platform = "telegram"
 chatID = os.getenv("CHAT_ID")
 loop_task = None
 
-bot = Bot(token=TG_Token)
-
-
 async def heartbeat(context):
     async with aiohttp.ClientSession() as session:
         await session.get("https://26a5129c-0712-4b89-b132-e77bac378232-00-2n2sg69a1819x.spock.replit.dev")
@@ -37,20 +36,20 @@ async def send_stats():
     print('gathering stats')
     await fetch_and_log_matches_for_last_day(1)
     text = await full_stats(platform)
-    await bot.sendMessage(chat_id=chatID, text=text)
+    await APP.bot.sendMessage(chat_id=chatID, text=text)
 
 
 async def send_loss_stats():
     await fetch_and_log_matches_for_last_day(1)
     text = await check_and_notify(platform)
     if text:
-        await bot.sendMessage(chat_id=chatID, text=text)
+        await APP.bot.sendMessage(chat_id=chatID, text=text)
 
 
 async def send_weekly_stats():
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report("telegram")
-    await bot.send_message(chat_id=chatID, text=message)
+    await APP.bot.send_message(chat_id=chatID, text=message)
 
 
 async def weekly(update, context):
@@ -250,8 +249,9 @@ def setup_handlers(app):
 
 
 async def main():
+    global APP
     app = Application.builder().token(TG_Token).build()
-
+    APP = app
     setup_handlers(app)
     # Register command handlers
     app.add_handler(CommandHandler("start", start))
@@ -283,8 +283,8 @@ async def main():
         name="weekly_report"
     )
 
-    max_retries = 5
-    retry_delay = 5
+    max_retries = 10
+    retry_delay = 6
 
     while True:  # Outer loop for automatic restart
         try:
@@ -298,6 +298,7 @@ async def main():
                         allowed_updates=["message"]
                     )
                     print("Bot successfully started and polling")
+                    await app.bot.send_message(chat_id=chatID, text="на проводі")
                     break
                 except Exception as e:
                     if attempt < max_retries - 1:
@@ -310,7 +311,7 @@ async def main():
                 try:
                     await asyncio.sleep(60)  # Check every minute
                     print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    await bot.get_me()  # Verify connection to Telegram
+                    await app.bot.get_me()  # Verify connection to Telegram
                 except asyncio.CancelledError:
                     print("Bot task was cancelled")
                     raise

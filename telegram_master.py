@@ -323,19 +323,7 @@ async def main():
     except Exception as e:
         print(f"Critical error during bot initialization: {str(e)}")
 
-
-# Wrapper function to call main inside async environment
-def start_bot():
-    try:
-        # Check if the event loop is already running
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If an event loop is already running, create a task instead
-            asyncio.create_task(main())  # Start the bot as a task
-        else:
-            asyncio.run(main())  # If no event loop is running, use asyncio.run()
-    except Exception as e:
-        print(f"Error in start_bot: {e}")
-
+# Start the bot
 if __name__ == "__main__":
-    start_bot()  # Start the bot
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())

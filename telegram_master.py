@@ -1,8 +1,6 @@
 from datetime import time
-
-from dateutil.tz import win
 from telegram import Update
-from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
+from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player, generate_invoke_msg
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
@@ -252,7 +250,7 @@ async def main():
     application.add_handler(CommandHandler("no", cancel_add))
     application.add_handler(CommandHandler("weekly", weekly))
     application.add_handler(CommandHandler("collect", fetch_and_log_matches))
-    application.add_handler(CommandHandler("invoke", invoke))
+    application.add_handler(CommandHandler("invoke", lambda update, context: invoke(update, context, app=application)))
 
     # Schedule recurring tasks using job_queue (no polling here)
     application.job_queue.run_repeating(lambda context: asyncio.create_task(run_loop()), interval=600)  # Parser task
@@ -264,7 +262,7 @@ async def main():
     application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=600)
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_weekly_stats(application)),
-        time=time(hour=16, minute=0),
+        time=time(hour=19, minute=10, tzinfo=kyiv_zone),
         days=(1,),  # Monday (0)
         name="weekly_report"
     )

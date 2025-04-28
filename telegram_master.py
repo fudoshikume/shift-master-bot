@@ -1,8 +1,7 @@
-from datetime import time, datetime
+from datetime import time
 from telegram import Update
-print(Update)
-from telegram.ext import Application, CommandHandler, ContextTypes
-import aiohttp
+from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
+from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
@@ -12,55 +11,38 @@ import os
 from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
-import sys
-
-sys.path.append(os.path.dirname(__file__))
-from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
 load_dotenv()  # Load variables from .env file
 
 TG_Token = os.getenv("TELEGRAM_TOKEN")
-platform = "telegram"
+platform="telegram"
 chatID = os.getenv("CHAT_ID")
 loop_task = None
 
-async def heartbeat(context):
-    async with aiohttp.ClientSession() as session:
-        await session.get("https://26a5129c-0712-4b89-b132-e77bac378232-00-2n2sg69a1819x.spock.replit.dev")
-    pass
-
-async def send_stats():
+async def send_stats(app):
     print('gathering stats')
     await fetch_and_log_matches_for_last_day(1)
     text = await full_stats(platform)
-    await APP.bot.sendMessage(chat_id=chatID, text=text)
-    pass
+    await app.bot.sendMessage(chat_id=chatID, text=text)
 
-
-async def send_loss_stats():
+async def send_loss_stats(app):
     await fetch_and_log_matches_for_last_day(1)
     text = await check_and_notify(platform)
     if text:
-        await APP.bot.sendMessage(chat_id=chatID, text=text)
-    pass
+        await app.bot.sendMessage(chat_id=chatID, text=text)
 
-
-async def send_weekly_stats():
+async def send_weekly_stats(app):
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report("telegram")
-    await APP.bot.send_message(chat_id=chatID, text=message)
-    pass
-
+    await app.bot.send_message(chat_id=chatID, text=message)
 
 async def weekly(update, context):
     await update.message.reply_text("👀*проглядає архіви*...")
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report(platform)
     await update.message.reply_text(message)
-    pass
-
 
 # f() to handle /stats
 async def stats(update, context):
@@ -68,8 +50,6 @@ async def stats(update, context):
     await fetch_and_log_matches_for_last_day(1)
     result = await full_stats(platform)
     await update.message.reply_text(result)
-    pass
-
 
 # f() to handle /losses
 async def losses(update, context):
@@ -80,21 +60,13 @@ async def losses(update, context):
         await update.message.reply_text(result)
     else:
         await update.message.reply_text("За останню годину в соло ніхто не програвав")
-    pass
-
 
 # f() to make sure bot is running
-async def start(update: Update, context):
-    print("Received /start command")  # Log to see if this is triggered
+async def start(update, context):
     await update.message.reply_text("Начальник зміни на проводі!")
-    pass
-
 
 async def gethelp(update, context):
-    await update.message.reply_text(
-        "Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
-    pass
-
+    await update.message.reply_text("Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
 
 async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
@@ -143,8 +115,6 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         },
         name=f"pending_add_{update.effective_user.id}"
     )
-    pass
-
 
 async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -168,8 +138,6 @@ async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     job = context.application.user_data[user_id].pop("pending_add_job", None)
     if job:
         job.schedule_removal()
-    pass
-
 
 async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -185,8 +153,6 @@ async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         job.schedule_removal()
 
     await update.message.reply_text("❌ Додавання скасовано.")
-    pass
-
 
 async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
     data = context.job.data
@@ -200,8 +166,6 @@ async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             text="⌛️ Час на підтвердження вийшов. Гравця не додано."
         )
-    pass
-
 
 async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Command to remove a player by their Steam ID"""
@@ -212,30 +176,12 @@ async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     steam_id = context.args[0]  # Extract Steam ID from command arguments
     response = remove_player(steam_id, platform="telegram")
     await update.message.reply_text(response)
-    pass
 
-
-async def fetch_and_log_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def fetch_and_log_matches(update: Update, context: CallbackContext):
     days_before = int(context.args[0]) if context.args else 1  # Default to 1 day if no argument is passed
     await update.message.reply_text(f"Гортаю звіти за {days_before} {get_accusative_case(days_before, day_cases)}")
     await fetch_and_log_matches_for_last_day(days=days_before)
-    await update.message.reply_text(
-        f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
-    pass
-
-
-async def run_parser(days: int, send_message_callback):
-    """Run the parser loop with a specified number of days."""
-    try:
-        await run_loop(days) # Simulate your parser loop work here
-        for _ in range(days):
-            # Perform parsing work
-            await asyncio.sleep(1)  # Simulate a delay in parsing
-        await send_message_callback("Парсинг завершено!")
-    except Exception as e:
-        print(f"Error in parser loop: {e}")
-        await send_message_callback(f"Error during parsing: {e}")
-
+    await update.message.reply_text(f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
 
 async def start_parser(update, context):
     """Start the parser loop."""
@@ -251,13 +197,10 @@ async def start_parser(update, context):
             await update.message.reply_text(message)
 
         # Start the loop with the 'days' parameter and the callback
-        loop_task = asyncio.create_task(run_parser(days, send_message_callback=send_completion_message))
-        await update.message.reply_text(
-            f"Парсер запущено, робимо матчі за остатні {days} {get_accusative_case(days, day_cases)}.")
+        loop_task = asyncio.create_task(run_loop(days, send_message_callback=send_completion_message))
+        await update.message.reply_text(f"Парсер запущено, робимо матчі за остатні {days} {get_accusative_case(days, day_cases)}.")
     except Exception as e:
         await update.message.reply_text(f"Шось пішло не так: {e}")
-    pass
-
 
 async def stop_parser(update, context):
     """Stop the parser loop."""
@@ -267,63 +210,54 @@ async def stop_parser(update, context):
         await update.message.reply_text("Парсер зупинено.")
     else:
         await update.message.reply_text("Нема шо зупиняти.")
-    pass
-
 
 # Setup the Telegram bot handlers
 def setup_handlers(app):
     app.add_handler(CommandHandler("parse", start_parser))  # Start command
     app.add_handler(CommandHandler("stopparse", stop_parser))  # Stop command
 
-
 async def main():
-    global APP
-    try:
-        app = Application.builder().token(TG_Token).build()
-        APP = app
-        setup_handlers(app)
+    # Initialize the Application object
+    application = Application.builder().token(TG_Token).build()
 
-        # Register command handlers
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("stats", stats))
-        app.add_handler(CommandHandler("losses", losses))
-        app.add_handler(CommandHandler("gethelp", gethelp))
-        app.add_handler(CommandHandler("addplayer", addplayer))
-        app.add_handler(CommandHandler("removeplayer", removeplayer))
-        app.add_handler(CommandHandler("yes", confirm_add))
-        app.add_handler(CommandHandler("no", cancel_add))
-        app.add_handler(CommandHandler("weekly", weekly))
-        app.add_handler(CommandHandler("collect", fetch_and_log_matches))
+    # Setup handlers (e.g., your command handlers)
+    setup_handlers(application)
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("stats", stats))
+    application.add_handler(CommandHandler("losses", losses))
+    application.add_handler(CommandHandler("gethelp", gethelp))
+    application.add_handler(CommandHandler("addplayer", addplayer))
+    application.add_handler(CommandHandler("removeplayer", removeplayer))
+    application.add_handler(CommandHandler("yes", confirm_add))
+    application.add_handler(CommandHandler("no", cancel_add))
+    application.add_handler(CommandHandler("weekly", weekly))
+    application.add_handler(CommandHandler("collect", fetch_and_log_matches))
 
-        # Schedule recurring tasks
-        app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
-                                    interval=600)  # every 10 min
-        app.job_queue.run_repeating(heartbeat, interval=180, first=0)
-        app.job_queue.run_daily(
-            lambda context: asyncio.create_task(send_stats()),
-            time=time(hour=3, minute=0, tzinfo=kyiv_zone)
-        )
-        app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)),
-                                    interval=21600)  # every 6 hrs
-        app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every 10 min
-        app.job_queue.run_daily(
-            callback=send_weekly_stats,
-            time=time(hour=15, minute=0),  # 15:00 UTC
-            days=(0,),  # Sunday (0 = Monday, so 6 = Saturday)
-            name="weekly_report"
-        )
+    # Schedule recurring tasks using job_queue
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)
+    application.job_queue.run_daily(
+        lambda context: asyncio.create_task(send_stats(application)),
+        time=time(hour=3, minute=0, tzinfo=kyiv_zone)
+    )
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600)
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=600)
+    application.job_queue.run_daily(
+        lambda context: asyncio.create_task(send_weekly_stats(application)),
+        time=time(hour=15, minute=0),
+        days=(0,),  # Sunday (0)
+        name="weekly_report"
+    )
 
-        # Start polling (this will automatically manage the event loop)
-        await app.run_polling(drop_pending_updates=True)
-        print("Bot successfully started and polling")
+    # Start polling the updates (commands, messages, etc.)
+    await application.initialize()
 
-        # Send a test message when started
-        await app.bot.send_message(chat_id=chatID, text="на проводі")
+    # Ensure the bot keeps running, waiting for commands
+    await asyncio.sleep(float('inf'))
 
-    except Exception as e:
-        print(f"Critical error during bot initialization: {str(e)}")
-
-# Start the bot
+# Check if the loop is already running
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    # If an event loop is already running, create a task to run the main function
+    try:
+        asyncio.get_event_loop().create_task(main())
+    except RuntimeError:  # If no event loop is running, run it normally
+        asyncio.run(main())

@@ -164,7 +164,7 @@ async def generate_invoke_msg(platform):
     players = load_players_from_csv()
     nickname_list = []
     for p in players:
-        nickname_list.append(p.name[platform])
+        nickname_list.append(f"{random.choice(names)} {p.name[platform]}")
     message = "\n".join(nickname_list) + "\nГайда на завод!"
     return message
 

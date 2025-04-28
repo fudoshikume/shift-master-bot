@@ -1,8 +1,9 @@
 from datetime import time
+
+from dateutil.tz import win
 from telegram import Update
 from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
-from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
-from match_parser import check_and_parse_matches
+from shift_master import check_and_notify, full_stats, add_player, remove_player, Player, generate_invoke_msg
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
 import asyncio
@@ -71,8 +72,12 @@ async def losses(update, context):
 async def start(update, context):
     await update.message.reply_text("Начальник зміни на проводі!")
 
+async def invoke(update, context, app):
+    message = await generate_invoke_msg(platform)  # platform is global
+    await app.bot.send_message(chat_id=chatID, text=message)
+
 async def gethelp(update, context):
-    await update.message.reply_text("Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
+    await update.message.reply_text("Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\n/collect Х - зібрати інфу про матчі за Х останніх днів (стандартно - 7)\n/parse X - Пропарсити матчі за Х останніх днів (стандартно - 7)\n/stopparse - зупинити парсер\nБільше інфи в @chuck.singer")
 
 async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
@@ -247,6 +252,7 @@ async def main():
     application.add_handler(CommandHandler("no", cancel_add))
     application.add_handler(CommandHandler("weekly", weekly))
     application.add_handler(CommandHandler("collect", fetch_and_log_matches))
+    application.add_handler(CommandHandler("invoke", invoke))
 
     # Schedule recurring tasks using job_queue (no polling here)
     application.job_queue.run_repeating(lambda context: asyncio.create_task(run_loop()), interval=600)  # Parser task
@@ -258,8 +264,8 @@ async def main():
     application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=600)
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_weekly_stats(application)),
-        time=time(hour=15, minute=0),
-        days=(0,),  # Sunday (0)
+        time=time(hour=16, minute=0),
+        days=(1,),  # Monday (0)
         name="weekly_report"
     )
 

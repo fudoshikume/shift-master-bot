@@ -160,6 +160,14 @@ async def generate_daily_report(platform, players):
         player.clear_stats()
     return "\n".join(compiled_stats)
 
+async def generate_invoke_msg(platform):
+    players = load_players_from_csv()
+    nickname_list = []
+    for p in players
+        nickname_list.append(p.name[platform])
+    message = "\n".join(nickname_list) + "\nГайда на завод!"
+    return message
+
 async def full_stats(platform) -> str:
     from match_stats import Match
     players = load_players_from_csv()

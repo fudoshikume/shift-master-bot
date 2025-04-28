@@ -23,7 +23,6 @@ async def fetch_and_log_matches_for_last_day(days: int):
             continue
 
         for raw in raw_matches:
-            print(raw)
             match_id = raw["match_id"]
             steam_id = player.steam_id
             is_parsed = raw.get("version") is not None

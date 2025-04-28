@@ -29,13 +29,14 @@ loop_task = None
 async def heartbeat(context):
     async with aiohttp.ClientSession() as session:
         await session.get("https://26a5129c-0712-4b89-b132-e77bac378232-00-2n2sg69a1819x.spock.replit.dev")
-
+    pass
 
 async def send_stats():
     print('gathering stats')
     await fetch_and_log_matches_for_last_day(1)
     text = await full_stats(platform)
     await APP.bot.sendMessage(chat_id=chatID, text=text)
+    pass
 
 
 async def send_loss_stats():
@@ -43,12 +44,14 @@ async def send_loss_stats():
     text = await check_and_notify(platform)
     if text:
         await APP.bot.sendMessage(chat_id=chatID, text=text)
+    pass
 
 
 async def send_weekly_stats():
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report("telegram")
     await APP.bot.send_message(chat_id=chatID, text=message)
+    pass
 
 
 async def weekly(update, context):
@@ -56,6 +59,7 @@ async def weekly(update, context):
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report(platform)
     await update.message.reply_text(message)
+    pass
 
 
 # f() to handle /stats
@@ -64,6 +68,7 @@ async def stats(update, context):
     await fetch_and_log_matches_for_last_day(1)
     result = await full_stats(platform)
     await update.message.reply_text(result)
+    pass
 
 
 # f() to handle /losses
@@ -75,17 +80,20 @@ async def losses(update, context):
         await update.message.reply_text(result)
     else:
         await update.message.reply_text("За останню годину в соло ніхто не програвав")
+    pass
 
 
 # f() to make sure bot is running
 async def start(update: Update, context):
     print("Received /start command")  # Log to see if this is triggered
     await update.message.reply_text("Начальник зміни на проводі!")
+    pass
 
 
 async def gethelp(update, context):
     await update.message.reply_text(
         "Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
+    pass
 
 
 async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -135,6 +143,7 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         },
         name=f"pending_add_{update.effective_user.id}"
     )
+    pass
 
 
 async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -159,6 +168,7 @@ async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     job = context.application.user_data[user_id].pop("pending_add_job", None)
     if job:
         job.schedule_removal()
+    pass
 
 
 async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,6 +185,7 @@ async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         job.schedule_removal()
 
     await update.message.reply_text("❌ Додавання скасовано.")
+    pass
 
 
 async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
@@ -189,6 +200,7 @@ async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             text="⌛️ Час на підтвердження вийшов. Гравця не додано."
         )
+    pass
 
 
 async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -200,6 +212,7 @@ async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     steam_id = context.args[0]  # Extract Steam ID from command arguments
     response = remove_player(steam_id, platform="telegram")
     await update.message.reply_text(response)
+    pass
 
 
 async def fetch_and_log_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -208,6 +221,20 @@ async def fetch_and_log_matches(update: Update, context: ContextTypes.DEFAULT_TY
     await fetch_and_log_matches_for_last_day(days=days_before)
     await update.message.reply_text(
         f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
+    pass
+
+
+async def run_parser(days: int, send_message_callback):
+    """Run the parser loop with a specified number of days."""
+    try:
+        await run_loop(days) # Simulate your parser loop work here
+        for _ in range(days):
+            # Perform parsing work
+            await asyncio.sleep(1)  # Simulate a delay in parsing
+        await send_message_callback("Парсинг завершено!")
+    except Exception as e:
+        print(f"Error in parser loop: {e}")
+        await send_message_callback(f"Error during parsing: {e}")
 
 
 async def start_parser(update, context):
@@ -224,11 +251,12 @@ async def start_parser(update, context):
             await update.message.reply_text(message)
 
         # Start the loop with the 'days' parameter and the callback
-        loop_task = asyncio.create_task(run_loop(days, send_message_callback=send_completion_message))
+        loop_task = asyncio.create_task(run_parser(days, send_message_callback=send_completion_message))
         await update.message.reply_text(
             f"Парсер запущено, робимо матчі за остатні {days} {get_accusative_case(days, day_cases)}.")
     except Exception as e:
         await update.message.reply_text(f"Шось пішло не так: {e}")
+    pass
 
 
 async def stop_parser(update, context):
@@ -239,6 +267,7 @@ async def stop_parser(update, context):
         await update.message.reply_text("Парсер зупинено.")
     else:
         await update.message.reply_text("Нема шо зупиняти.")
+    pass
 
 
 # Setup the Telegram bot handlers
@@ -253,6 +282,7 @@ async def main():
         app = Application.builder().token(TG_Token).build()
         APP = app
         setup_handlers(app)
+
         # Register command handlers
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("stats", stats))
@@ -283,12 +313,29 @@ async def main():
             name="weekly_report"
         )
 
+        # Start polling (this will automatically manage the event loop)
         await app.run_polling(drop_pending_updates=True)
         print("Bot successfully started and polling")
+
+        # Send a test message when started
+        await app.bot.send_message(chat_id=chatID, text="на проводі")
 
     except Exception as e:
         print(f"Critical error during bot initialization: {str(e)}")
 
 
+# Wrapper function to call main inside async environment
+def start_bot():
+    try:
+        # Check if the event loop is already running
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If an event loop is already running, create a task instead
+            asyncio.create_task(main())  # Start the bot as a task
+        else:
+            asyncio.run(main())  # If no event loop is running, use asyncio.run()
+    except Exception as e:
+        print(f"Error in start_bot: {e}")
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    start_bot()  # Start the bot

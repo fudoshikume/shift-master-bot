@@ -11,6 +11,7 @@ import os
 from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
+from aiohttp import web
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
@@ -20,6 +21,11 @@ TG_Token = os.getenv("TELEGRAM_TOKEN")
 platform="telegram"
 chatID = os.getenv("CHAT_ID")
 loop_task = None
+
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+
 
 async def send_stats(app):
     print('gathering stats')
@@ -217,11 +223,20 @@ def setup_handlers(app):
     app.add_handler(CommandHandler("stopparse", stop_parser))  # Stop command
 
 async def main():
-    # Initialize the Application object
     application = Application.builder().token(TG_Token).build()
 
-    # Setup handlers (e.g., your command handlers)
+    # Setup the HTTP server
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
+
+    # Run the HTTP server in the background
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+
     setup_handlers(application)
+    # Setup handlers (e.g., your command handlers)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("losses", losses))
@@ -233,8 +248,8 @@ async def main():
     application.add_handler(CommandHandler("weekly", weekly))
     application.add_handler(CommandHandler("collect", fetch_and_log_matches))
 
-    # Schedule recurring tasks using job_queue
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()), interval=600)
+    # Schedule recurring tasks using job_queue (no polling here)
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(run_loop()), interval=600)  # Parser task
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_stats(application)),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
@@ -248,15 +263,14 @@ async def main():
         name="weekly_report"
     )
 
-    # Start polling the updates (commands, messages, etc.)
+    # Initialize the application and start the bot
     await application.initialize()
 
-    # Ensure the bot keeps running, waiting for commands
+    # Ensure the bot keeps running (no polling)
     await asyncio.sleep(float('inf'))
 
 # Check if the loop is already running
 if __name__ == "__main__":
-    # If an event loop is already running, create a task to run the main function
     try:
         asyncio.get_event_loop().create_task(main())
     except RuntimeError:  # If no event loop is running, run it normally

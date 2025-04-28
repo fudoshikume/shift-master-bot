@@ -249,47 +249,45 @@ def setup_handlers(app):
 
 async def main():
     global APP
-    app = Application.builder().token(TG_Token).build()
-    APP = app
-    setup_handlers(app)
-    # Register command handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("losses", losses))
-    app.add_handler(CommandHandler("gethelp", gethelp))
-    app.add_handler(CommandHandler("addplayer", addplayer))
-    app.add_handler(CommandHandler("removeplayer", removeplayer))
-    app.add_handler(CommandHandler("yes", confirm_add))
-    app.add_handler(CommandHandler("no", cancel_add))
-    app.add_handler(CommandHandler("weekly", weekly))
-    app.add_handler(CommandHandler("collect", fetch_and_log_matches))
-
-    # Schedule recurring tasks
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
-                                interval=600)  # every 10 min
-    app.job_queue.run_repeating(heartbeat, interval=180, first=0)
-    app.job_queue.run_daily(
-        lambda context: asyncio.create_task(send_stats()),
-        time=time(hour=3, minute=0, tzinfo=kyiv_zone)
-    )
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)),
-                                interval=21600)  # every 6 hrs
-    app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every 10 min
-    app.job_queue.run_daily(
-        callback=send_weekly_stats,
-        time=time(hour=15, minute=0),  # 15:00 UTC
-        days=(0,),  # Sunday (0 = Monday, so 6 = Saturday)
-        name="weekly_report"
-    )
-
     try:
-        print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        await app.run_polling(drop_pending_updates=True)  # Start polling for messages
+        app = Application.builder().token(TG_Token).build()
+        APP = app
+        setup_handlers(app)
+        # Register command handlers
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("stats", stats))
+        app.add_handler(CommandHandler("losses", losses))
+        app.add_handler(CommandHandler("gethelp", gethelp))
+        app.add_handler(CommandHandler("addplayer", addplayer))
+        app.add_handler(CommandHandler("removeplayer", removeplayer))
+        app.add_handler(CommandHandler("yes", confirm_add))
+        app.add_handler(CommandHandler("no", cancel_add))
+        app.add_handler(CommandHandler("weekly", weekly))
+        app.add_handler(CommandHandler("collect", fetch_and_log_matches))
+
+        # Schedule recurring tasks
+        app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
+                                    interval=600)  # every 10 min
+        app.job_queue.run_repeating(heartbeat, interval=180, first=0)
+        app.job_queue.run_daily(
+            lambda context: asyncio.create_task(send_stats()),
+            time=time(hour=3, minute=0, tzinfo=kyiv_zone)
+        )
+        app.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)),
+                                    interval=21600)  # every 6 hrs
+        app.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats()), interval=600)  # every 10 min
+        app.job_queue.run_daily(
+            callback=send_weekly_stats,
+            time=time(hour=15, minute=0),  # 15:00 UTC
+            days=(0,),  # Sunday (0 = Monday, so 6 = Saturday)
+            name="weekly_report"
+        )
+
+        await app.run_polling(drop_pending_updates=True)
         print("Bot successfully started and polling")
-        await app.bot.send_message(chat_id=chatID, text="на проводі")
+
     except Exception as e:
         print(f"Critical error during bot initialization: {str(e)}")
-        # Handle cleanup or retry logic here if necessary
 
 
 if __name__ == "__main__":

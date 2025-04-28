@@ -285,6 +285,7 @@ async def main():
 
     try:
         print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        await app.initialize()  # Initialize the application
         await app.start_polling(drop_pending_updates=True)
         print("Bot successfully started and polling")
         await app.bot.send_message(chat_id=chatID, text="на проводі")

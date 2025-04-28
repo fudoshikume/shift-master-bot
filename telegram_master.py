@@ -5,14 +5,13 @@ import aiohttp
 from match_parser import check_and_parse_matches
 from match_stats import generate_weekly_report
 from match_parser_instarun import run_loop
+import asyncio
 from dotenv import load_dotenv
 import os
 from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
 import sys
-import httpx
-import asyncio
 
 sys.path.append(os.path.dirname(__file__))
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player
@@ -29,17 +28,9 @@ loop_task = None
 bot = Bot(token=TG_Token)
 
 
-async def heartbeat(context: CallbackContext):
-    url = "https://shift-master-bot.onrender.com/"
-    try:
-        async with httpx.AsyncClient() as client:
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"Heartbeat check at {current_time}...")
-            response = await client.get(url)
-            print(f"Heartbeat sent at {current_time}, status: {response.status_code}")
-    except Exception as e:
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f"Heartbeat failed at {current_time}: {e}")
+async def heartbeat(context):
+    async with aiohttp.ClientSession() as session:
+        await session.get("https://26a5129c-0712-4b89-b132-e77bac378232-00-2n2sg69a1819x.spock.replit.dev")
 
 
 async def send_stats():
@@ -62,7 +53,7 @@ async def send_weekly_stats():
     await bot.send_message(chat_id=chatID, text=message)
 
 
-async def weekly(update: Update, context: CallbackContext):
+async def weekly(update, context):
     await update.message.reply_text("👀*проглядає архіви*...")
     await fetch_and_log_matches_for_last_day(7)
     message = generate_weekly_report(platform)
@@ -70,19 +61,15 @@ async def weekly(update: Update, context: CallbackContext):
 
 
 # f() to handle /stats
-async def stats(update: Update, context: CallbackContext):
-    try:
-        print("Stats command received!")
-        await update.message.reply_text("*копається в гівні*...")
-        await fetch_and_log_matches_for_last_day(1)
-        result = await full_stats(platform)
-        await update.message.reply_text(result)
-    except Exception as e:
-        print(f"Error in stats command: {e}")
+async def stats(update, context):
+    await update.message.reply_text("*копається в гівні*...")
+    await fetch_and_log_matches_for_last_day(1)
+    result = await full_stats(platform)
+    await update.message.reply_text(result)
 
 
 # f() to handle /losses
-async def losses(update: Update, context: CallbackContext):
+async def losses(update, context):
     await update.message.reply_text("*Перевіряє на запах ділдаки*...")
     await fetch_and_log_matches_for_last_day(1)
     result = await check_and_notify(platform)
@@ -93,12 +80,12 @@ async def losses(update: Update, context: CallbackContext):
 
 
 # f() to make sure bot is running
-async def start(update: Update, context: CallbackContext):
-    print("Start command received!")  # Log to see if this is triggered
+async def start(update, context):
+    print("Received /start command")  # Log to see if this is triggered
     await update.message.reply_text("Начальник зміни на проводі!")
 
 
-async def gethelp(update: Update, context: CallbackContext):
+async def gethelp(update, context):
     await update.message.reply_text(
         "Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\nБільше інфи в @chuck.singer")
 
@@ -281,7 +268,7 @@ async def main():
     # Schedule recurring tasks
     app.job_queue.run_repeating(lambda context: asyncio.create_task(check_and_parse_matches()),
                                 interval=600)  # every 10 min
-    app.job_queue.run_repeating(heartbeat, interval=60, first=0)
+    app.job_queue.run_repeating(heartbeat, interval=180, first=0)
     app.job_queue.run_daily(
         lambda context: asyncio.create_task(send_stats()),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
@@ -299,50 +286,60 @@ async def main():
     max_retries = 5
     retry_delay = 5
 
-    try:
-        print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        for attempt in range(max_retries):
-            try:
-                await app.initialize()
-                # Directly run polling without managing the event loop yourself
-                await app.updater.start_polling()  # This starts the event loop and handles retries internally
-                await bot.send_message(chat_id=chatID, text="на проводі")
-                print("Bot successfully started and polling")
-                break
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    print(f"Connection attempt {attempt + 1} failed: {e}")
-                    await asyncio.sleep(retry_delay)
-                else:
+    while True:  # Outer loop for automatic restart
+        try:
+            print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            for attempt in range(max_retries):
+                try:
+                    await app.initialize()
+                    await app.start()
+                    await app.updater.start_polling(
+                        drop_pending_updates=True,
+                        allowed_updates=["message"]
+                    )
+                    print("Bot successfully started and polling")
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(f"Connection attempt {attempt + 1} failed: {e}")
+                        await asyncio.sleep(retry_delay)
+                    else:
+                        raise
+
+            while True:  # Inner loop for normal operation
+                try:
+                    await asyncio.sleep(60)  # Check every minute
+                    print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    await bot.get_me()  # Verify connection to Telegram
+                except asyncio.CancelledError:
+                    print("Bot task was cancelled")
                     raise
-        else:
-            print("Failed to start the bot after retries.")
-            return
-
-        # Ensure the bot is still running and verify its connection
-        while True:  # Inner loop to maintain the bot running
+                except Exception as e:
+                    print(f"Error in main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"Error type: {type(e).__name__}")
+                    print(f"Error details: {str(e)}")
+                    print(f"Connection will be retried...")
+                    import traceback
+                    print(f"Traceback:\n{traceback.format_exc()}")
+                    continue
+        except asyncio.CancelledError:
+            print("Bot shutdown requested")
+            break
+        except Exception as e:
+            print(f"Critical error at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error details: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             try:
-                await asyncio.sleep(60)  # Check every minute
-                print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                await bot.get_me()  # Verify connection to Telegram
-            except asyncio.CancelledError:
-                print("Bot task was cancelled")
-                break
-            except Exception as e:
-                print(f"Error in main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                print(f"Error type: {type(e).__name__}")
-                print(f"Error details: {str(e)}")
-                print(f"Connection will be retried...")
-                import traceback
-                print(f"Traceback:\n{traceback.format_exc()}")
-                continue
+                if app.running:
+                    await app.stop()
+                    await app.shutdown()
+            except Exception as stop_error:
+                print(f"Error during shutdown: {stop_error}")
+            print("Attempting to restart in 5 seconds...")
+            await asyncio.sleep(5)
+            continue
 
-    except Exception as e:
-        print(f"Critical error at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error details: {str(e)}")
-        import traceback
-        print(f"Traceback:\n{traceback.format_exc()}")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())

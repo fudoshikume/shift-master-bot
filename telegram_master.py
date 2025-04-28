@@ -283,64 +283,14 @@ async def main():
         name="weekly_report"
     )
 
-    max_retries = 10
-    retry_delay = 6
-
-    while True:  # Outer loop for automatic restart
-        try:
-            print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            for attempt in range(max_retries):
-                try:
-                    await app.initialize()
-                    await app.start()
-                    await app.updater.start_polling(
-                        drop_pending_updates=True,
-                        allowed_updates=["message"]
-                    )
-                    print("Bot successfully started and polling")
-                    await app.bot.send_message(chat_id=chatID, text="на проводі")
-                    break
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        print(f"Connection attempt {attempt + 1} failed: {e}")
-                        await asyncio.sleep(retry_delay)
-                    else:
-                        raise
-
-            while True:  # Inner loop for normal operation
-                try:
-                    await asyncio.sleep(60)  # Check every minute
-                    print(f"Bot heartbeat check - still running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    await app.bot.get_me()  # Verify connection to Telegram
-                except asyncio.CancelledError:
-                    print("Bot task was cancelled")
-                    raise
-                except Exception as e:
-                    print(f"Error in main loop at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    print(f"Error type: {type(e).__name__}")
-                    print(f"Error details: {str(e)}")
-                    print(f"Connection will be retried...")
-                    import traceback
-                    print(f"Traceback:\n{traceback.format_exc()}")
-                    continue
-        except asyncio.CancelledError:
-            print("Bot shutdown requested")
-            break
-        except Exception as e:
-            print(f"Critical error at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Error type: {type(e).__name__}")
-            print(f"Error details: {str(e)}")
-            import traceback
-            print(f"Traceback:\n{traceback.format_exc()}")
-            try:
-                if app.running:
-                    await app.stop()
-                    await app.shutdown()
-            except Exception as stop_error:
-                print(f"Error during shutdown: {stop_error}")
-            print("Attempting to restart in 5 seconds...")
-            await asyncio.sleep(5)
-            continue
+    try:
+        print(f"Initializing bot at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        await app.start_polling(drop_pending_updates=True)
+        print("Bot successfully started and polling")
+        await app.bot.send_message(chat_id=chatID, text="на проводі")
+    except Exception as e:
+        print(f"Critical error during bot initialization: {str(e)}")
+        # Handle cleanup or retry logic here if necessary
 
 
 asyncio.run(main())

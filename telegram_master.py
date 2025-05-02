@@ -251,13 +251,13 @@ async def main():
     application.add_handler(CommandHandler("invoke", invoke))
 
     # Schedule recurring tasks using job_queue (no polling here)
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(run_loop()), interval=600)  # Parser task
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(run_loop()), interval=1800)  # Parser task
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_stats(application)),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
     )
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=21600)
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=600)
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=79201)
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=3600)
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_weekly_stats(application)),
         time=time(hour=15, minute=0),

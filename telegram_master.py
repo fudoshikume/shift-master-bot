@@ -24,6 +24,14 @@ loop_task = None
 async def handle(request):
     return web.Response(text="Bot is running!")
 
+async def start_web_server():
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+
 async def send_stats(app):
     print('gathering stats')
     await fetch_and_log_matches_for_last_day(1)
@@ -227,14 +235,7 @@ async def main():
     application = Application.builder().token(TG_Token).build()
 
     # Setup the HTTP server
-    app = web.Application()
-    app.add_routes([web.get("/", handle)])
-
-    # Run the HTTP server in the background
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    await site.start()
+    await start_web_server()
 
     setup_handlers(application)
     # Setup handlers (e.g., your command handlers)

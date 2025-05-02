@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from match_collector_instarun import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
 from aiohttp import web
+import aiohttp
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
@@ -232,10 +233,13 @@ def setup_handlers(app):
     app.add_handler(CommandHandler("stopparse", stop_parser))  # Stop command
 
 async def main():
-    application = Application.builder().token(TG_Token).build()
+    async with aiohttp.ClientSession() as session:
+        await session.post(f"https://api.telegram.org/bot{TG_Token}/deleteWebhook")
 
-    # Setup the HTTP server
     await start_web_server()
+
+    application = Application.builder().token(TG_Token).build()
+    # Setup the HTTP server
 
     setup_handlers(application)
     # Setup handlers (e.g., your command handlers)

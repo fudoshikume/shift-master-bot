@@ -2,7 +2,7 @@ from datetime import time
 from telegram import Update, Bot
 from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
 from shift_master import check_and_notify, full_stats, add_player, remove_player, Player, generate_invoke_msg
-from match_stats import generate_weekly_report
+from match_stats import generate_weekly_report, generate_all_time_report
 from match_parser_instarun import run_loop
 import asyncio
 from dotenv import load_dotenv
@@ -46,13 +46,19 @@ async def send_loss_stats(app):
         await app.bot.sendMessage(chat_id=chatID, text=text)
 
 async def send_weekly_stats(app):
-    await fetch_and_log_matches_for_last_day(7)
+    # await fetch_and_log_matches_for_last_day(7) skipping to lighten the request rate
     message = generate_weekly_report("telegram")
     await app.bot.send_message(chat_id=chatID, text=message)
 
+async def alltime(update, context):
+    await update.message.reply_text("👀*розчищає підвал*...")
+    await fetch_and_log_matches_for_last_day(1)
+    message = generate_all_time_report(platform)
+    await update.message.reply_text(message)
+
 async def weekly(update, context):
     await update.message.reply_text("👀*проглядає архіви*...")
-    await fetch_and_log_matches_for_last_day(7)
+    await fetch_and_log_matches_for_last_day(1)
     message = generate_weekly_report(platform)
     await update.message.reply_text(message)
 
@@ -74,11 +80,29 @@ async def losses(update, context):
         await update.message.reply_text("За останню годину в соло ніхто не програвав")
 
 # f() to make sure bot is running
-async def start(update, context):
+async def status(update, context):
     await update.message.reply_text("Начальник зміни на проводі!")
 
 async def gethelp(update, context):
-    await update.message.reply_text("Доступні команди: \n/gethelp - список команд; \n/start - перевірка статусу Бота;\n/stats - отримати стату роботяг за останні 24 години;\n/losses - підтримати соло-невдах останньої години.\n/addplayer <steam_id> <telegram_nick> <discord_nick - опційно> - Додати досьє гравця до теки. * Steam ID і telegram nickname обов'язкові\n/removeplayer <Steam_ID32> Видалити досьє гравця з теки.\n/weekly - загальна статистика банди за тиждень(NEW)\n/collect Х - зібрати інфу про матчі за Х останніх днів (стандартно - 7)\n/parse X - Пропарсити матчі за Х останніх днів (стандартно - 7)\n/stopparse - зупинити парсер\n/invoke - закликати всіх на завод\nБільше інфи в @chuck.singer")
+    help_lines = [
+        "🤖 *Доступні команди:*",
+        "/gethelp — список команд;",
+        "/status — перевірка статусу Бота;",
+        "/stats — стата роботяг за останні 24 години;",
+        "/losses — підтримати соло-невдах останньої години;",
+        "/addplayer <steam_id> <telegram_nick> <discord_nick (опційно)> — додати досьє гравця до теки.",
+        "   * Steam ID і telegram nickname — обов'язкові;",
+        "/removeplayer <steam_id32> — видалити досьє гравця з теки;",
+        "/weekly — загальна статистика банди за тиждень (🆕);",
+        "/alltime — загальна статистика заводу за весь час (🆕)"
+        "/collect X — зібрати інфу про матчі за останні X днів (стандартно — 7);",
+        "/parse X — пропарсити матчі за X днів (стандартно — 7) [Застаріла];",
+        "/stopparse — зупинити парсер [Застаріла];",
+        "/invoke — закликати всіх на завод 🏭",
+        "",
+        "📎 Більше інфи — [@chuck.singer](https://t.me/chuck.singer)"
+    ]
+    await update.message.reply_text("\n".join(help_lines), parse_mode="Markdown")
 
 async def invoke(update, context):
     message = await generate_invoke_msg(platform)  # platform is global
@@ -243,7 +267,7 @@ async def main():
 
     setup_handlers(application)
     # Setup handlers (e.g., your command handlers)
-    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("losses", losses))
     application.add_handler(CommandHandler("gethelp", gethelp))
@@ -254,15 +278,15 @@ async def main():
     application.add_handler(CommandHandler("weekly", weekly))
     application.add_handler(CommandHandler("collect", fetch_and_log_matches))
     application.add_handler(CommandHandler("invoke", invoke))
+    application.add_handler(CommandHandler("alltime", alltime))
 
     # Schedule recurring tasks using job_queue (no polling here)
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(run_loop()), interval=1800)  # Parser task
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_stats(application)),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
     )
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=79201)
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=3600)
+    # application.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=79201)
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=3590)
     application.job_queue.run_daily(
         lambda context: asyncio.create_task(send_weekly_stats(application)),
         time=time(hour=15, minute=0),
@@ -273,10 +297,11 @@ async def main():
     # Initialize the application and start the bot
     await application.initialize()
     await application.start()
+    await application.bot.delete_webhook(drop_pending_updates=True)  # optional safety
     await application.updater.start_polling()
 
-    # Ensure the bot keeps running (no polling)
-    await asyncio.sleep(float('inf'))
+    # ✅ Keep alive without causing loop conflicts
+    await asyncio.Event().wait()
 
 # Check if the loop is already running
 if __name__ == "__main__":

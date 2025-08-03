@@ -287,4 +287,6 @@ poetry.toml
 pyrightconfig.json
 
 matchlog.csv
+matchlog_old.csv
 players.csv
+players_temp.csv

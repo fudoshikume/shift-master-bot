@@ -204,7 +204,7 @@ async def collect_daily_stats(matches, players):
     print("DEBUG DAILY STATS")
     print(f"matches: {len(matches)}\nplayers: {len(players)}")
     for player in players:
-        print(f"Debug player {player.steam_id}: {player.name.get("telegram")}")
+        print(f"Debug player {player.steam_id}: {player.name.get('telegram')}")
         player.update_daily_stats(matches)
 
 async def generate_daily_report(platform, players):

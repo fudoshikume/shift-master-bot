@@ -14,6 +14,7 @@ from core import get_accusative_case, day_cases
 from aiohttp import web
 import aiohttp
 from db import remove_player, add_player
+from telegram.error import Conflict
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
@@ -23,6 +24,14 @@ TG_Token = os.getenv("TELEGRAM_TOKEN")
 platform="telegram"
 # chatID = os.getenv("CHAT_ID")
 loop_task = None
+
+async def safe_start_polling(application):
+    try:
+        await application.updater.start_polling()
+        print("[BOT] Polling started successfully.")
+    except Conflict:
+        print("[BOT] Another instance is running. Stopping this one.")
+        await application.stop()
 
 async def handle(request):
     return web.Response(text="Bot is running!")
@@ -347,7 +356,7 @@ async def main():
     await application.initialize()
     await application.start()
     await application.bot.delete_webhook(drop_pending_updates=True)  # optional safety
-    await application.updater.start_polling()
+    await safe_start_polling(application)
 
     # ✅ Keep alive without causing loop conflicts
     await asyncio.Event().wait()

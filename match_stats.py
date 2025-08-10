@@ -7,11 +7,11 @@ import json
 import asyncio
 
 from flask.cli import load_dotenv
-
+from dateutil.parser import isoparse
 from core import player_win, get_match_end_time, names, GAME_MODES
 from datetime import datetime, timedelta, timezone
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional, Union
 from collections import Counter
 import random
 import httpx
@@ -38,10 +38,15 @@ class Match:
     match_id: int
     player_ids: List[int]
     win_status: bool
-    endtime: datetime
+    endtime: Union[datetime, str]  # поки що дозволь і рядок приймати
     duration: int
-    solo_status: bool | None = None
-    match_mode: int = 0  # ✅ default to Unknown (see core.py -> GAME_MODE_NAMES)
+    solo_status: Optional[bool] = None
+    match_mode: int = 0
+
+    def __post_init__(self):
+        if isinstance(self.endtime, str):
+            # Конвертуємо рядок у datetime
+            self.endtime = isoparse(self.endtime)
 
     @staticmethod
     async def get_recent_matches(steam_id: int, days: int = 1, limit: int = 10, offset: int = 0, after_match_id: int | None = None) -> list:
@@ -90,89 +95,90 @@ class Match:
 
         return new_matches
 
-    @staticmethod
-    def write_matches_to_csv(matches: list, filename='matchlog.csv', overwrite=False):
-        file_exists = os.path.exists(filename)
+    # @staticmethod
+    # def write_matches_to_csv(matches: list, filename='matchlog.csv', overwrite=False):
+    #     file_exists = os.path.exists(filename)
+    #
+    #     mode = 'w' if overwrite else 'a'
+    #
+    #     with open(filename, mode, newline='', encoding='utf-8') as f:
+    #         writer = csv.writer(f)
+    #
+    #         if not file_exists or overwrite:
+    #             writer.writerow(
+    #                 ["match_id", "player_ids", "win_status", "solo_status", "endtime", "duration", "match_mode"]
+    #             )
+    #
+    #         for match in matches:
+    #             writer.writerow([
+    #                 match.match_id,
+    #                 ';'.join(str(pid) for pid in match.player_ids),
+    #                 int(match.win_status),
+    #                 "1" if match.solo_status is True else "0" if match.solo_status is False else "",
+    #                 match.endtime.isoformat() if match.endtime else "",
+    #                 match.duration,
+    #                 match.match_mode,
+    #             ])
 
-        mode = 'w' if overwrite else 'a'
+# def read_matches_from_csv(filename='matchlog.csv') -> list:
+#     matches = []
+#
+#     if not os.path.exists(filename):
+#         return matches
+#
+#     try:
+#         with open(filename, newline='', encoding="utf-8") as f:
+#             reader = csv.DictReader(f)
+#
+#             for row in reader:
+#                 if not row["match_id"] or row["match_id"] == "match_id":
+#                     continue
+#
+#                 # Parse solo_status safely
+#                 solo_raw = row.get("solo_status", "").strip()
+#                 if solo_raw == "1":
+#                     solo_status = True
+#                 elif solo_raw == "0":
+#                     solo_status = False
+#                 else:
+#                     solo_status = None
+#
+#                 # Parse match_mode safely (as int if possible, else 0)
+#                 match_mode_raw = row.get("match_mode", "").strip()
+#                 try:
+#                     match_mode = int(match_mode_raw) if match_mode_raw else 0
+#                 except ValueError:
+#                     match_mode = 0
+#
+#                 match = Match(
+#                     match_id=int(row["match_id"]),
+#                     player_ids=[int(pid) for pid in row["player_ids"].split(";") if pid],
+#                     win_status=json.loads(row["win_status"]),
+#                     solo_status=solo_status,
+#                     endtime=datetime.fromisoformat(row["endtime"]) if row["endtime"] else None,
+#                     duration=int(row["duration"]) if row["duration"] else 0,
+#                     match_mode=match_mode  # correctly assigned here
+#                 )
+#                 matches.append(match)
+#     except Exception as e:
+#         print(f"[ERROR] Reading matches from CSV failed: {e}")
+#
+#     return matches
 
-        with open(filename, mode, newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-
-            if not file_exists or overwrite:
-                writer.writerow(
-                    ["match_id", "player_ids", "win_status", "solo_status", "endtime", "duration", "match_mode"]
-                )
-
-            for match in matches:
-                writer.writerow([
-                    match.match_id,
-                    ';'.join(str(pid) for pid in match.player_ids),
-                    int(match.win_status),
-                    "1" if match.solo_status is True else "0" if match.solo_status is False else "",
-                    match.endtime.isoformat() if match.endtime else "",
-                    match.duration,
-                    match.match_mode,
-                ])
-
-def read_matches_from_csv(filename='matchlog.csv') -> list:
-    matches = []
-
-    if not os.path.exists(filename):
-        return matches
-
-    try:
-        with open(filename, newline='', encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-
-            for row in reader:
-                if not row["match_id"] or row["match_id"] == "match_id":
-                    continue
-
-                # Parse solo_status safely
-                solo_raw = row.get("solo_status", "").strip()
-                if solo_raw == "1":
-                    solo_status = True
-                elif solo_raw == "0":
-                    solo_status = False
-                else:
-                    solo_status = None
-
-                # Parse match_mode safely (as int if possible, else 0)
-                match_mode_raw = row.get("match_mode", "").strip()
-                try:
-                    match_mode = int(match_mode_raw) if match_mode_raw else 0
-                except ValueError:
-                    match_mode = 0
-
-                match = Match(
-                    match_id=int(row["match_id"]),
-                    player_ids=[int(pid) for pid in row["player_ids"].split(";") if pid],
-                    win_status=json.loads(row["win_status"]),
-                    solo_status=solo_status,
-                    endtime=datetime.fromisoformat(row["endtime"]) if row["endtime"] else None,
-                    duration=int(row["duration"]) if row["duration"] else 0,
-                    match_mode=match_mode  # correctly assigned here
-                )
-                matches.append(match)
-    except Exception as e:
-        print(f"[ERROR] Reading matches from CSV failed: {e}")
-
-    return matches
-
-def get_last_week_matches():
-    matches = read_matches_from_csv()
+async def get_last_week_matches():
+    import db
+    matches = await db.get_logged_match_objects()
     one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     return [m for m in matches if m.endtime > one_week_ago]
 
-async def fetch_and_log_matches():
-    from shift_master import load_players_from_csv
-    players = load_players_from_csv()
-    player_ids = [player.steam_id for player in players]
-
-    for player in players:
-        new_matches = await Match.create_new_matches_from_recent(player.steam_id, player_ids)
-        Match.write_matches_to_csv(new_matches)
+# async def fetch_and_log_matches():
+#     import db
+#     players = db.get_players()
+#     player_ids = [player.steam_id for player in players]
+#
+#     for player in players:
+#         new_matches = await Match.create_new_matches_from_recent(player.steam_id, player_ids)
+#         await db.add_matches(new_matches)
 
 def get_player_counters(matches: list) -> tuple[Counter, Counter, Counter, Counter]:
     games_played = Counter()
@@ -225,7 +231,7 @@ def get_longest_match(matches: list, players: list) -> str:
 
 def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
     one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    recent_matches = [m for m in matches if m.endtime > one_week_ago]
+    recent_matches = [m for m in matches if m.endtime and m.endtime > one_week_ago]
 
     if not recent_matches:
         return "📉 За останній тиждень ігор не знайдено."
@@ -299,17 +305,24 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
         f"{longest_match_str}"
     )
 
-def generate_weekly_report(platform: str) -> str:
-    from shift_master import load_players_from_csv
-    players = load_players_from_csv()
-    matches = read_matches_from_csv()
+async def generate_weekly_report(channel, platform: str) -> str:
+    import db
+    players = await db.get_channel_players(channel)
+    matches = await db.get_logged_match_objects()
     return generate_weekly_summary(matches, players, platform)
 
-def generate_all_time_report(platform: str) -> str:
-    from shift_master import load_players_from_csv
-    matches = read_matches_from_csv("matchlog.csv")
-    players = load_players_from_csv()
+async def generate_all_time_report(channel, platform: str) -> str:
+    import db
+    matches = await db.get_logged_match_objects()
+    players = await db.get_channel_players(channel)
     player_map = {p.steam_id: p for p in players}
+
+    print("=== DEBUG PLAYERS ===")
+    for p in players:
+        print(p.steam_id, p.name)
+    print("=== DEBUG MATCH PLAYER IDS ===")
+    for m in matches[:5]:
+        print(m.match_id, m.player_ids, [type(pid) for pid in m.player_ids])
 
     # 1. Total matches and game mode breakdown
     total_matches = len(matches)
@@ -448,12 +461,11 @@ async def is_player_solo_in_match(match_id, steam_id: int) -> bool | None:
 #     Match.write_matches_to_csv(matches, overwrite=True)
 #     print(f"✅ matchlog.csv rewritten with {count} updated match_modes")
 #
-async def main():
-    matches = read_matches_from_csv()
-    print(generate_all_time_report("telegram"))
-
-if __name__ == '__main__':
-    asyncio.run(main())
+# async def main():
+#
+#
+# if __name__ == '__main__':
+#     asyncio.run(main())
 
 # async def update_all_solo_status_stratz():
 #     matches = read_matches_from_csv()

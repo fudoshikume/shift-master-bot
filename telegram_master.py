@@ -1,17 +1,19 @@
 from datetime import time
 from telegram import Update, Bot
 from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
-from shift_master import check_and_notify, full_stats, add_player, remove_player, Player, generate_invoke_msg
+import db
+from shift_master import check_and_notify, full_stats, Player, generate_invoke_msg
 from match_stats import generate_weekly_report, generate_all_time_report
 from match_parser_instarun import run_loop
 import asyncio
 from dotenv import load_dotenv
 import os
 from zoneinfo import ZoneInfo
-from match_collector_instarun import fetch_and_log_matches_for_last_day
+from match_collector_instarun_db import fetch_and_log_matches_for_last_day
 from core import get_accusative_case, day_cases
 from aiohttp import web
 import aiohttp
+from db import remove_player, add_player
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
 
@@ -19,7 +21,7 @@ load_dotenv()  # Load variables from .env file
 
 TG_Token = os.getenv("TELEGRAM_TOKEN")
 platform="telegram"
-chatID = os.getenv("CHAT_ID")
+# chatID = os.getenv("CHAT_ID")
 loop_task = None
 
 async def handle(request):
@@ -33,47 +35,85 @@ async def start_web_server():
     site = web.TCPSite(runner, "0.0.0.0", 8080)
     await site.start()
 
-async def send_stats(app):
+async def check_bot_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    chat_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
+    # Перевіримо чи бот має права на повідомлення (можна додати інші права)
+    can_post_messages = getattr(chat_member, 'can_post_messages', True)  # True для супергруп і каналів за замовчуванням
+    can_read_messages = chat_member.status in ['administrator', 'member']
+    return can_post_messages and can_read_messages
+
+async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    title = update.effective_chat.title
+
+    # Перевіряємо, чи канал вже в базі
+    if db.channel_exists(chat_id):
+        await update.message.reply_text("Я і так вже тут начальник!")
+        return
+
+    # Перевіряємо права бота у каналі
+    has_perms = await check_bot_permissions(update, context)
+    if not has_perms:
+        await update.message.reply_text("Дай мені доступ до особових справ! (потрібні права адміністратора)")
+        return
+
+    # Додаємо канал у базу
+
+    try:
+        await db.add_channel(chat_id, title)
+        await update.message.reply_text("У вас тепер новий нач по кадрах!")
+    except Exception as e:
+        await update.message.reply_text(f"Щось пішло не так при додаванні каналу: {e}")
+
+async def send_stats(app, channels):
     print('gathering stats')
-    await fetch_and_log_matches_for_last_day(1)
-    text = await full_stats(platform)
-    await app.bot.sendMessage(chat_id=chatID, text=text)
+    for channel in channels:
+        await fetch_and_log_matches_for_last_day(channel, days=1)
+        text = await full_stats(channel, platform)
+        await app.bot.sendMessage(chat_id=channel, text=text)
 
-async def send_loss_stats(app):
-    await fetch_and_log_matches_for_last_day(1)
-    text = await check_and_notify(platform)
-    if text:
-        await app.bot.sendMessage(chat_id=chatID, text=text)
+async def send_loss_stats(app, channels):
+    for channel in channels:
+        await fetch_and_log_matches_for_last_day(channel, days=1)
+        text = await check_and_notify(channel, platform)
+        if text:
+            await app.bot.sendMessage(chat_id=channel, text=text)
 
-async def send_weekly_stats(app):
-    # await fetch_and_log_matches_for_last_day(7) skipping to lighten the request rate
-    message = generate_weekly_report("telegram")
-    await app.bot.send_message(chat_id=chatID, text=message)
+async def send_weekly_stats(app, channels):
+    for channel in channels:
+        await fetch_and_log_matches_for_last_day(channel, 7)
+        message = await generate_weekly_report(channel, "telegram")
+        await app.bot.send_message(chat_id=channel, text=message)
 
 async def alltime(update, context):
     await update.message.reply_text("👀*розчищає підвал*...")
-    await fetch_and_log_matches_for_last_day(1)
-    message = generate_all_time_report(platform)
+    channel = update.message.chat_id
+    await fetch_and_log_matches_for_last_day(channel, days=1)
+    message = await generate_all_time_report(channel, platform)
     await update.message.reply_text(message)
 
 async def weekly(update, context):
     await update.message.reply_text("👀*проглядає архіви*...")
-    await fetch_and_log_matches_for_last_day(1)
-    message = generate_weekly_report(platform)
+    channel = update.message.chat_id
+    await fetch_and_log_matches_for_last_day(channel, days=1)
+    message = await generate_weekly_report(channel, platform)
     await update.message.reply_text(message)
 
 # f() to handle /stats
 async def stats(update, context):
     await update.message.reply_text("*копається в гівні*...")
-    await fetch_and_log_matches_for_last_day(1)
-    result = await full_stats(platform)
+    channel = update.message.chat_id
+    await fetch_and_log_matches_for_last_day(channel, days=1)
+    result = await full_stats(platform, channel)
     await update.message.reply_text(result)
 
 # f() to handle /losses
 async def losses(update, context):
     await update.message.reply_text("*Перевіряє на запах ділдаки*...")
-    await fetch_and_log_matches_for_last_day(1)
-    result = await check_and_notify(platform)
+    channel = update.message.chat_id
+    await fetch_and_log_matches_for_last_day(channel, days=1)
+    result = await check_and_notify(channel, platform)
     if result:
         await update.message.reply_text(result)
     else:
@@ -105,7 +145,8 @@ async def gethelp(update, context):
     await update.message.reply_text("\n".join(help_lines), parse_mode="Markdown")
 
 async def invoke(update, context):
-    message = await generate_invoke_msg(platform)  # platform is global
+    channel_id = update.message.chat_id
+    message = await generate_invoke_msg(platform, channel_id)  # platform is global
     await update.message.reply_text(message)
 
 async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,7 +163,6 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_nick = context.args[1]
     discord_nick = context.args[2] if len(context.args) > 2 else None
 
-    # Validate steam_id via OpenDota
     nickname = Player.validate_steam_id(steam_id)
     if not nickname:
         await update.message.reply_text("❌ Не вдалося знайти гравця за цим Steam ID.")
@@ -132,11 +172,11 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if discord_nick:
         name_dict["discord"] = discord_nick
 
-    # Temporarily store pending data for confirmation
     context.user_data["pending_add"] = {
         "steam_id": steam_id,
         "name_dict": name_dict,
         "od_nick": nickname,
+        "channel_ids": [update.effective_chat.id]  # Додаємо chat_id відразу сюди
     }
 
     await update.message.reply_text(
@@ -145,7 +185,6 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    # Schedule timeout job
     context.job_queue.run_once(
         timeout_pending_add,
         when=300,
@@ -157,25 +196,24 @@ async def addplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pending_data = context.user_data.get("pending_add")
     user_id = update.effective_user.id
-    pending_data = context.application.user_data.get(user_id, {}).get("pending_add")
 
     if not pending_data:
         await update.message.reply_text("⚠️ Немає гравця для підтвердження.")
         return
 
-    steam_id = pending_data["steam_id"]
-    name_dict = pending_data["name_dict"]
+    # Якщо хочеш додатково гарантувати, що поточний чат в channel_ids
+    chat_id = update.effective_chat.id
+    if chat_id not in pending_data.get("channel_ids", []):
+        pending_data["channel_ids"].append(chat_id)
 
-    success = add_player(steam_id, name_dict)
-    if success:
-        await update.message.reply_text(f"✅ Гравця {name_dict.get('telegram')} додано.")
-    else:
-        await update.message.reply_text(f"❌ Гравець із steam_id {steam_id} вже існує.")
+    success = add_player(pending_data)
 
-    # Clear the pending add and cancel timeout
-    context.application.user_data[user_id].pop("pending_add", None)
-    job = context.application.user_data[user_id].pop("pending_add_job", None)
+    msg = "✅ Гравця додано." if success else "ℹ️ Гравець вже існує або сталася помилка."
+    await update.message.reply_text(msg)
+
+    job = context.user_data[user_id].pop("pending_add_job", None)
     if job:
         job.schedule_removal()
 
@@ -208,13 +246,21 @@ async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Command to remove a player by their Steam ID"""
     if len(context.args) < 1:
-        await update.message.reply_text("⚠️ Використання: /removeplayer <steam_id>.\nНе забудь додати Steam_ID")
+        await update.message.reply_text("⚠️ Використання: /removeplayer <steam_id>\nНе забудь додати Steam ID.")
         return
 
-    steam_id = context.args[0]  # Extract Steam ID from command arguments
-    response = remove_player(steam_id, platform="telegram")
+    steam_id = context.args[0]
+    try:
+        steam_id = int(steam_id)
+    except ValueError:
+        await update.message.reply_text("⚠️ Неправильний формат Steam ID. Має бути число.")
+        return
+
+    # Отримуємо id поточного чату
+    channel_id = str(update.effective_chat.id)
+
+    response = remove_player(steam_id=steam_id, channel_id=channel_id)
     await update.message.reply_text(response)
 
 async def fetch_and_log_matches(update: Update, context: CallbackContext):
@@ -265,8 +311,11 @@ async def main():
     application = Application.builder().token(TG_Token).build()
     # Setup the HTTP server
 
+    channels = db.get_channels()
+
     setup_handlers(application)
     # Setup handlers (e.g., your command handlers)
+    application.add_handler(CommandHandler("register", register))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("losses", losses))
@@ -282,13 +331,13 @@ async def main():
 
     # Schedule recurring tasks using job_queue (no polling here)
     application.job_queue.run_daily(
-        lambda context: asyncio.create_task(send_stats(application)),
+        lambda context: asyncio.create_task(send_stats(application, channels)),
         time=time(hour=3, minute=0, tzinfo=kyiv_zone)
     )
     # application.job_queue.run_repeating(lambda context: asyncio.create_task(fetch_and_log_matches_for_last_day(1)), interval=79201)
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application)), interval=3590)
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(send_loss_stats(application, channels)), interval=3590)
     application.job_queue.run_daily(
-        lambda context: asyncio.create_task(send_weekly_stats(application)),
+        lambda context: asyncio.create_task(send_weekly_stats(application, channels)),
         time=time(hour=15, minute=0),
         days=(0,),  # Sunday (0)
         name="weekly_report"

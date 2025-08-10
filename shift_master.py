@@ -1,16 +1,15 @@
 import requests
 import datetime
 import asyncio
-import csv
-import json
 import random
 import aiohttp
 from datetime import datetime, timedelta, timezone
 from core import names, get_accusative_case, rank_id_to_tier
 
+
 ### below goes class Player with attr and methods for handling:
 class Player:
-    def __init__(self, steam_id, name):
+    def __init__(self, steam_id, name, current_rank=0):
         self.steam_id = steam_id
         self.name = name
         self.daily_games = 0
@@ -19,6 +18,7 @@ class Player:
         self.daily_losses = 0
         self.total_duration = 0
         self.current_rank = 0
+        self.channel_ids = []
 
     @staticmethod
     def validate_steam_id(steam_id: int) -> str | None:
@@ -86,21 +86,36 @@ class Player:
         self.daily_losses = 0
         self.total_duration = 0
 
-async def update_rank(platform):
+async def update_rank(platform, channel):
     msg = [""]
-    players = load_players_from_csv()
+    import db
+    players = await db.get_channel_players(channel)
+
     for player in players:
         old_rank = player.current_rank
-        player.current_rank = await player.get_current_rank()
+        new_rank = await player.get_current_rank()
 
-        if old_rank != player.current_rank:
+        if old_rank != new_rank:
+            db.update_player(player.steam_id, {"current_rank": new_rank})
+
             if old_rank == 0:
-                msg.append(f'🫡 Для {player.name.get(platform)} заведено поточний ранг {rank_id_to_tier.get(player.current_rank)}!\n')
-            elif old_rank < player.current_rank:
-                msg.append(f'👑 {random.choice(names)} {player.name.get(platform)} апнув ранг з {rank_id_to_tier.get(old_rank)} до {rank_id_to_tier.get(player.current_rank)}! Найщиріші конгратуляції!\n🍻🍻🍻\n')
+                msg.append(
+                    f'🫡 Для {player.name.get(platform)} заведено поточний ранг '
+                    f'{rank_id_to_tier.get(new_rank)}!\n'
+                )
+            elif old_rank < new_rank:
+                msg.append(
+                    f'👑 {random.choice(names)} {player.name.get(platform)} апнув ранг '
+                    f'з {rank_id_to_tier.get(old_rank)} до {rank_id_to_tier.get(new_rank)}! '
+                    'Найщиріші конгратуляції!\n🍻🍻🍻\n'
+                )
             else:
-                msg.append(f'🩼 {random.choice(names)} {player.name.get(platform)} спустився з {rank_id_to_tier.get(old_rank)} до {rank_id_to_tier.get(player.current_rank)}! НТ, скоро так в дізабіліті дріфт підеш!\n🦞🦞🦞\n')
-    save_players_to_csv(players)
+                msg.append(
+                    f'🩼 {random.choice(names)} {player.name.get(platform)} спустився '
+                    f'з {rank_id_to_tier.get(old_rank)} до {rank_id_to_tier.get(new_rank)}! '
+                    'НТ, скоро так в дізабіліті дріфт підеш!\n🦞🦞🦞\n'
+                )
+
     print("\n".join(msg))
     return msg
 
@@ -122,12 +137,12 @@ async def get_last_hour_solo_losers(matches: list, players: list, platform) -> l
 
     return solo_losers
 
-async def check_and_notify(platform) -> str:
+async def check_and_notify(channel, platform) -> str:
     """f() returns message to messenger bot based on result from get_solo_losses()"""
-    from match_stats import read_matches_from_csv
+    import db
     message = [""]
-    matches = read_matches_from_csv("matchlog.csv")
-    players = load_players_from_csv("players.csv")
+    matches = await db.get_logged_match_objects()
+    players = await db.get_channel_players(channel)
     solo_loss_players = await get_last_hour_solo_losers(matches, players, platform)
     for player in solo_loss_players:
         message.append(f"{player} ({player.name.get(platform)}), НТ, старенький, вже як є :(")
@@ -135,57 +150,61 @@ async def check_and_notify(platform) -> str:
     await asyncio.sleep(0.1)
     return compiled_msg
 
-def load_players_from_csv(filename="players.csv"):
-    players = []
-    with open(filename, mode="r", newline="", encoding="utf-8") as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            steam_id = int(row["steam_id"])
-            name = json.loads(row["name"])
-            current_rank = int(row.get("current_rank", 0))  # default to 0 if missing
-            player = Player(steam_id, name)
-            player.current_rank = current_rank
-            players.append(player)
-    return players
+# def load_players_from_csv(filename="players.csv"):
+#     players = []
+#     with open(filename, mode="r", newline="", encoding="utf-8") as file:
+#         reader = csv.DictReader(file)
+#         for row in reader:
+#             steam_id = int(row["steam_id"])
+#             name = json.loads(row["name"])
+#             current_rank = int(row.get("current_rank", 0))  # default to 0 if missing
+#             player = Player(steam_id, name)
+#             player.current_rank = current_rank
+#             players.append(player)
+#     return players
 
-def add_player(steam_id, name_dict):
-    players = load_players_from_csv()
-    if any(p.steam_id == steam_id for p in players):
-        return False  # Player already exists
+# def add_player(steam_id, name_dict):
+#     players = load_players_from_csv()
+#     if any(p.steam_id == steam_id for p in players):
+#         return False  # Player already exists
+#
+#     new_player = Player(steam_id, name_dict)
+#     players.append(new_player)
+#     save_players_to_csv(players)
+#     return True
 
-    new_player = Player(steam_id, name_dict)
-    players.append(new_player)
-    save_players_to_csv(players)
-    return True
+# """def remove_player(steam_id, platform=None):
+#     ## Remove a player from the CSV file based on steam_id
+#     players = load_players_from_csv()  # Load current players from CSV
+#     player_to_remove = None
+#
+#     for player in players:
+#         if player.steam_id == steam_id:
+#             player_to_remove = player
+#             break
+#
+#     if player_to_remove:
+#         players.remove(player_to_remove)
+#         save_players_to_csv(players)  # Save the updated list back to CSV
+#         if platform:
+#             return f"Гравця {player_to_remove.name.get(platform)} з Steam ID {steam_id} видалено з теки."
+#         return f"Гравця {steam_id} видалено з теки."
+#     else:
+#         return f"Гравця з Steam ID {steam_id} не знайдено в теці."
+#         """
 
-def remove_player(steam_id, platform=None):
-    """Remove a player from the CSV file based on steam_id"""
-    players = load_players_from_csv()  # Load current players from CSV
-    player_to_remove = None
-
-    for player in players:
-        if player.steam_id == steam_id:
-            player_to_remove = player
-            break
-
-    if player_to_remove:
-        players.remove(player_to_remove)
-        save_players_to_csv(players)  # Save the updated list back to CSV
-        if platform:
-            return f"Гравця {player_to_remove.name.get(platform)} з Steam ID {steam_id} видалено з теки."
-        return f"Гравця {steam_id} видалено з теки."
-    else:
-        return f"Гравця з Steam ID {steam_id} не знайдено в теці."
-
-def save_players_to_csv(players, filename="players.csv"):
-    with open(filename, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["steam_id", "name", "current_rank"])
-        for player in players:
-            writer.writerow([player.steam_id, json.dumps(player.name), player.current_rank])
+# def save_players_to_csv(players, filename="players.csv"):
+#     with open(filename, mode="w", newline="", encoding="utf-8") as file:
+#         writer = csv.writer(file)
+#         writer.writerow(["steam_id", "name", "current_rank"])
+#         for player in players:
+#             writer.writerow([player.steam_id, json.dumps(player.name), player.current_rank])
 
 async def collect_daily_stats(matches, players):
+    print("DEBUG DAILY STATS")
+    print(f"matches: {len(matches)}\nplayers: {len(players)}")
     for player in players:
+        print(f"Debug player {player.steam_id}: {player.name.get("telegram")}")
         player.update_daily_stats(matches)
 
 async def generate_daily_report(platform, players):
@@ -194,23 +213,30 @@ async def generate_daily_report(platform, players):
         "---------------------------"
     ]
     for player in players:
-        compiled_stats.append(await player.fetch_and_count_games(platform))
+        name = player.name.get(platform)
+        if not name:
+            print(f"DEBUG: {name} Player {player.steam_id} has no name for platform '{platform}'")
+        res = await player.fetch_and_count_games(platform)
+        if res is None:
+            res = f"{player.name.get(platform, 'Unknown')} статистика відсутня"
+        compiled_stats.append(res)
         player.clear_stats()
     return "\n".join(compiled_stats)
 
-async def generate_invoke_msg(platform):
-    players = load_players_from_csv()
+async def generate_invoke_msg(platform, channel_id):
+    import db
+    players = await db.get_channel_players(channel_id)
     nickname_list = []
     for p in players:
         nickname_list.append(f"{random.choice(names)} {p.name[platform]}")
     message = "\n".join(nickname_list) + "\nГайда на завод!"
     return message
 
-async def full_stats(platform) -> str:
-    from match_stats import read_matches_from_csv
-    rank_msg = await update_rank(platform)
-    players = load_players_from_csv()
-    matches = read_matches_from_csv("matchlog.csv")
+async def full_stats(platform, channel) -> str:
+    import db
+    rank_msg = await update_rank(platform, channel)
+    players = await db.get_channel_players(channel)
+    matches = await db.get_logged_match_objects()
     await collect_daily_stats(matches, players)
     msg = await generate_daily_report(platform, players)
     if len(rank_msg) > 1:
@@ -219,9 +245,3 @@ async def full_stats(platform) -> str:
     else:
         msg += "\n\n🗿🗿 Змін в рангах немає... 🗿🗿"
     return msg
-
-"""async def main():
-    await update_rank('telegram')
-
-if __name__ == "__main__":
-    asyncio.run(main())"""

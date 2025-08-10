@@ -1,6 +1,6 @@
 import aiohttp
 import asyncio
-from shift_master import load_players_from_csv
+import db
 from core import get_accusative_case, day_cases
 
 
@@ -30,7 +30,7 @@ async def request_parse(session, match_id):
 
 async def check_and_parse_matches(days, send_message_callback=None):
     print(f"\n[Start] Checking matches to parse from the last {days} days...")
-    players = load_players_from_csv()
+    players = await db.get_players()
     async with aiohttp.ClientSession() as session:
         tasks = [get_matches(session, player.steam_id, days) for player in players]
         results = await asyncio.gather(*tasks)

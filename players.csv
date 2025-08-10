@@ -1,15 +1,15 @@
-steam_id,name,current_rank
-60939193,"{""telegram"": ""@basturmate"", ""discord"": ""@scan.die""}",61
-91979951,"{""telegram"": ""@chuck_singer"", ""discord"": ""@sniggovic""}",25
-113464386,"{""telegram"": ""@matwey_k"", ""discord"": ""@mk""}",44
-378156730,"{""telegram"": ""@Honey_Badger"", ""discord"": ""@honeybadger_333""}",54
-180785888,"{""telegram"": ""@boikevich"", ""discord"": ""@TURBO""}",34
-196765629,"{""telegram"": ""@\u0416\u0435\u043d\u044f"", ""discord"": ""jekuna007""}",31
-154210795,"{""telegram"": ""@SKantor1"", ""discord"": ""@sqwer9""}",44
-1513957386,"{""telegram"": ""@bobokaja"", ""discord"": ""@boboka1474""}",54
-195364625,"{""telegram"": ""@jwl_s"", ""discord"": ""@.jwl.""}",63
-153518750,"{""telegram"": ""@m_ANJ"", ""discord"": ""@mad.anj""}",0
-221564662,"{""telegram"": ""@dimon4egkl"", ""discord"": ""@dimon4egkl""}",42
-312330386,"{""telegram"": ""@Tony_Soprano""}",32
-1281355481,"{""telegram"": ""@vitalii_klymiuk_psy"", ""discord"": ""@elfijsky""}",0
-99467577,"{""telegram"": ""@Honey_Badger"", ""discord"": ""@honeybadger_333""}",61
+steam_id,name,current_rank,channel_ids
+60939193,"{""telegram"": ""@basturmate"", ""discord"": ""@scan.die""}",61,['-4764440479']
+91979951,"{""telegram"": ""@chuck_singer"", ""discord"": ""@sniggovic""}",25,['-4764440479']
+113464386,"{""telegram"": ""@matwey_k"", ""discord"": ""@mk""}",44,['-4764440479']
+378156730,"{""telegram"": ""@Honey_Badger"", ""discord"": ""@honeybadger_333""}",54,['-4764440479']
+180785888,"{""telegram"": ""@boikevich"", ""discord"": ""@TURBO""}",34,['-4764440479']
+196765629,"{""telegram"": ""@\u0416\u0435\u043d\u044f"", ""discord"": ""jekuna007""}",31,['-4764440479']
+154210795,"{""telegram"": ""@SKantor1"", ""discord"": ""@sqwer9""}",44,['-4764440479']
+1513957386,"{""telegram"": ""@bobokaja"", ""discord"": ""@boboka1474""}",54,['-4764440479']
+195364625,"{""telegram"": ""@jwl_s"", ""discord"": ""@.jwl.""}",63,['-4764440479']
+153518750,"{""telegram"": ""@m_ANJ"", ""discord"": ""@mad.anj""}",0,['-4764440479']
+221564662,"{""telegram"": ""@dimon4egkl"", ""discord"": ""@dimon4egkl""}",42,['-4764440479']
+312330386,"{""telegram"": ""@Tony_Soprano""}",32,['-4764440479']
+1281355481,"{""telegram"": ""@vitalii_klymiuk_psy"", ""discord"": ""@elfijsky""}",0,['-4764440479']
+99467577,"{""telegram"": ""@Honey_Badger"", ""discord"": ""@honeybadger_333""}",61,['-4764440479']

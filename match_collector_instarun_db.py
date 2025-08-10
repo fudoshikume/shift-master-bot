@@ -78,7 +78,7 @@ async def fetch_and_log_matches_for_last_day(channel_id: str, days: int = 1):
     # 3. Для кожного гравця тягнемо матчі
     for player in players:
         steam_id = player.steam_id
-        print(f"🔍 Fetching matches for {player.name.get("telegram")}")
+        print(f"🔍 Fetching matches for {player.name.get('telegram')}")
 
         raw_matches = await Match.get_recent_matches(steam_id, days=days)
         if not raw_matches:

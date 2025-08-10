@@ -307,6 +307,3 @@ async def get_all_match_players(match_ids, chunk_size=1000):
             break
         start += chunk_size
     return all_players
-
-if __name__ == "__main__":
-    print(f"The result of the check is {channel_exists("-4764440479")}")

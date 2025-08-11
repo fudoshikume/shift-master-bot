@@ -79,7 +79,7 @@ async def send_stats(app, channels):
     print('gathering stats')
     for channel in channels:
         await fetch_and_log_matches_for_last_day(channel, days=1)
-        text = await full_stats(channel, platform)
+        text = await full_stats(platform, channel)
         await app.bot.sendMessage(chat_id=channel, text=text)
 
 async def send_loss_stats(app, channels):
@@ -92,7 +92,7 @@ async def send_loss_stats(app, channels):
 async def send_weekly_stats(app, channels):
     for channel in channels:
         await fetch_and_log_matches_for_last_day(channel, 7)
-        message = await generate_weekly_report(channel, "telegram")
+        message = await generate_weekly_report(channel, platform)
         await app.bot.send_message(chat_id=channel, text=message)
 
 async def alltime(update, context):

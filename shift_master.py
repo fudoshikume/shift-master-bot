@@ -145,7 +145,7 @@ async def check_and_notify(channel, platform) -> str:
     players = await db.get_channel_players(channel)
     solo_loss_players = await get_last_hour_solo_losers(matches, players, platform)
     for player in solo_loss_players:
-        message.append(f"{player} ({player.name.get(platform)}), НТ, старенький, вже як є :(")
+        message.append(f"{player}, НТ, старенький, вже як є :(")
     compiled_msg = "\n".join(message)
     await asyncio.sleep(0.1)
     return compiled_msg

@@ -1,11 +1,6 @@
-import aiohttp
 import requests
 import datetime
-import csv
 import os
-import json
-import asyncio
-
 from flask.cli import load_dotenv
 from dateutil.parser import isoparse
 from core import player_win, get_match_end_time, names, GAME_MODES
@@ -200,33 +195,32 @@ def get_player_counters(matches: list) -> tuple[Counter, Counter, Counter, Count
 
     return games_played, wins, losses, solo
 
-def get_longest_match(matches: list, players: list) -> str:
+def get_longest_match(matches: list, players: list, platform: str) -> str:
     if not matches:
         return "Немає зіграних ігор для аналізу тривалості."
 
-    # Find the match with the maximum duration
     longest = max(matches, key=lambda m: m.duration)
 
-    # Convert duration to minutes and seconds
-    minutes, seconds = divmod(longest.duration, 60)
-    duration_str = f"{minutes} хв {seconds} с"
+    mins, secs = divmod(longest.duration, 60)
+    duration_str = f"{mins} хв {secs:02} с"
 
-    # Convert endtime to readable date
-    date_str = longest.endtime.strftime('%Y-%m-%d %H:%M')
+    mode_str = GAME_MODES.get(longest.match_mode, f"Невідомий режим ({longest.match_mode})")
+    outcome_str = "🔵 Виграна нашими" if longest.win_status else "🔴 Поразка наших"
 
-    # Find player names
-    def get_name(pid):
+    tracked_players = []
+    for pid in longest.player_ids:
         for p in players:
             if p.steam_id == pid:
-                return p.name.get("telegram", str(pid))
-        return str(pid)
-
-    player_names = ", ".join([get_name(pid) for pid in longest.player_ids])
+                tracked_players.append(p.name.get(platform, str(pid)))
+                break
 
     return (
-        f"\n🕰️ *Найдовша гра:* {duration_str}\n"
-        f"📅 {date_str}\n"
-        f"👥 Гравці: {player_names}"
+        f"\n🐌 *Найдовша гра:*\n"
+        f"⏱ Тривалість: {duration_str}\n"
+        f"🎮 Режим: {mode_str}\n"
+        f"{outcome_str}\n"
+        f"👥 Наші гравці: {', '.join(tracked_players)}\n"
+        f"🆔 Match ID: {longest.match_id}"
     )
 
 def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
@@ -282,7 +276,7 @@ def generate_weekly_summary(matches: list, players: list, platform: str) -> str:
     top_solo = get_name(top_solo_id)
 
     # Longest match info
-    longest_match_str = get_longest_match(recent_matches, players)
+    longest_match_str = get_longest_match(recent_matches, players, platform)
 
     # Prepare the player stats list
     player_stats_list = '\n'.join(

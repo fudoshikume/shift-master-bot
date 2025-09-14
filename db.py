@@ -126,7 +126,7 @@ def add_player(player_data: dict):
     return True
 
 def update_player(player_id, updates: dict):
-    supabase.table("players").update(updates).eq("id", player_id).execute()
+    supabase.table("players").update(updates).eq("steam_id", player_id).execute()
 
 def remove_player(steam_id: int, channel_id: str = None):
     """

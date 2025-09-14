@@ -231,7 +231,7 @@ async def add_matches(matches: List[Match]) -> bool:
         )
 
     # Запис у matchlog
-    res1 = supabase.table("matchlog").upsert(matchlog_rows).execute()
+    res1 = supabase.table("matchlog").upsert(matchlog_rows, on_conflict="match_id").execute()
     if res1.data is None:
         print("❌ Error inserting into matchlog:", res1)
         return False

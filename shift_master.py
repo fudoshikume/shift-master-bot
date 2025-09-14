@@ -38,11 +38,20 @@ class Player:
     def update_daily_stats(self, matches: list):
         """Updates this player's daily stats based on recent matches."""
         now = datetime.now(timezone.utc)
+        print(f"DEBUG {self.steam_id}: now={now.isoformat()}")
+        for m in matches:
+            if self.steam_id in m.player_ids:
+                delta = now - m.endtime if isinstance(m.endtime, datetime) else "BAD_TYPE"
+                if delta <= timedelta(days=7):
+                    print(f"[MATCH] {m.match_id} | "
+                          f"ended {m.endtime} | "
+                          f"delta={delta}")
+
         recent_matches = [
             m for m in matches
-
             if self.steam_id in m.player_ids and m.endtime and now - m.endtime <= timedelta(days=1)
         ]
+        print(f"DEBUG {self.steam_id}: counted {len(recent_matches)} recent matches")
 
         self.daily_games = len(recent_matches)
         self.daily_wins = sum(1 for m in recent_matches if m.win_status)

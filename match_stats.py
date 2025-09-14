@@ -316,17 +316,24 @@ async def fetch_match_from_stratz(match_id: int) -> dict | None:
     }
 
     payload = {"query": query}
-    # print(json.dumps(payload, indent=2))
-    # print(json.dumps(headers, indent=4))
-    async with httpx.AsyncClient() as client:
-        response = await client.post(GRAPHQL_URL, json=payload, headers=headers)
 
-    if response.status_code == 200:
-        data = response.json().get("data", {}).get("match")
-        return data
-    else:
-        print(f"[STRATZ] Error {response.status_code}: {response.text}")
-        return None
+    # Клієнт із більшим таймаутом
+    timeout = httpx.Timeout(20.0)  # 20 секунд
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for attempt in range(3):  # до 3 спроб
+            try:
+                response = await client.post(GRAPHQL_URL, json=payload, headers=headers)
+                if response.status_code == 200:
+                    return response.json().get("data", {}).get("match")
+                else:
+                    print(f"[STRATZ] Error {response.status_code}: {response.text}")
+                    return None
+            except httpx.ReadTimeout:
+                print(f"[STRATZ] Timeout fetching {match_id}, attempt {attempt+1}/3")
+                if attempt < 2:
+                    await asyncio.sleep(2)  # ретрай з паузою
+                else:
+                    return None
 
 async def is_player_solo_in_match(match_id, steam_id: int) -> bool | None:
     """

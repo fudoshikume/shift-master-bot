@@ -6,8 +6,6 @@ import aiohttp
 from datetime import datetime, timedelta, timezone
 from core import names, get_accusative_case, rank_id_to_tier
 
-
-### below goes class Player with attr and methods for handling:
 class Player:
     def __init__(self, steam_id, name, current_rank=0):
         self.steam_id = steam_id
@@ -149,56 +147,6 @@ async def check_and_notify(channel, platform) -> str:
     compiled_msg = "\n".join(message)
     await asyncio.sleep(0.1)
     return compiled_msg
-
-# def load_players_from_csv(filename="players.csv"):
-#     players = []
-#     with open(filename, mode="r", newline="", encoding="utf-8") as file:
-#         reader = csv.DictReader(file)
-#         for row in reader:
-#             steam_id = int(row["steam_id"])
-#             name = json.loads(row["name"])
-#             current_rank = int(row.get("current_rank", 0))  # default to 0 if missing
-#             player = Player(steam_id, name)
-#             player.current_rank = current_rank
-#             players.append(player)
-#     return players
-
-# def add_player(steam_id, name_dict):
-#     players = load_players_from_csv()
-#     if any(p.steam_id == steam_id for p in players):
-#         return False  # Player already exists
-#
-#     new_player = Player(steam_id, name_dict)
-#     players.append(new_player)
-#     save_players_to_csv(players)
-#     return True
-
-# """def remove_player(steam_id, platform=None):
-#     ## Remove a player from the CSV file based on steam_id
-#     players = load_players_from_csv()  # Load current players from CSV
-#     player_to_remove = None
-#
-#     for player in players:
-#         if player.steam_id == steam_id:
-#             player_to_remove = player
-#             break
-#
-#     if player_to_remove:
-#         players.remove(player_to_remove)
-#         save_players_to_csv(players)  # Save the updated list back to CSV
-#         if platform:
-#             return f"Гравця {player_to_remove.name.get(platform)} з Steam ID {steam_id} видалено з теки."
-#         return f"Гравця {steam_id} видалено з теки."
-#     else:
-#         return f"Гравця з Steam ID {steam_id} не знайдено в теці."
-#         """
-
-# def save_players_to_csv(players, filename="players.csv"):
-#     with open(filename, mode="w", newline="", encoding="utf-8") as file:
-#         writer = csv.writer(file)
-#         writer.writerow(["steam_id", "name", "current_rank"])
-#         for player in players:
-#             writer.writerow([player.steam_id, json.dumps(player.name), player.current_rank])
 
 async def collect_daily_stats(matches, players):
     print("DEBUG DAILY STATS")

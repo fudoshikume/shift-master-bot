@@ -1,6 +1,6 @@
 from datetime import time
-from telegram import Update, Bot
-from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext, Updater
+from telegram import Update
+from telegram.ext import CommandHandler, Application, ContextTypes, CallbackContext
 import db
 from shift_master import check_and_notify, full_stats, Player, generate_invoke_msg
 from match_stats import generate_weekly_report, generate_all_time_report
@@ -17,12 +17,9 @@ from db import remove_player, add_player
 from telegram.error import Conflict
 
 kyiv_zone = ZoneInfo("Europe/Kyiv")
-
-load_dotenv()  # Load variables from .env file
-
+load_dotenv()
 TG_Token = os.getenv("TELEGRAM_TOKEN")
 platform="telegram"
-# chatID = os.getenv("CHAT_ID")
 loop_task = None
 
 async def safe_start_polling(application):
@@ -109,7 +106,6 @@ async def weekly(update, context):
     message = await generate_weekly_report(channel, platform)
     await update.message.reply_text(message)
 
-# f() to handle /stats
 async def stats(update, context):
     await update.message.reply_text("*копається в гівні*...")
     channel = update.message.chat_id
@@ -117,7 +113,6 @@ async def stats(update, context):
     result = await full_stats(platform, channel)
     await update.message.reply_text(result)
 
-# f() to handle /losses
 async def losses(update, context):
     await update.message.reply_text("*Перевіряє на запах ділдаки*...")
     channel = update.message.chat_id
@@ -274,8 +269,9 @@ async def removeplayer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def fetch_and_log_matches(update: Update, context: CallbackContext):
     days_before = int(context.args[0]) if context.args else 1  # Default to 1 day if no argument is passed
+    channel_id = str(update.effective_chat.id)
     await update.message.reply_text(f"Гортаю звіти за {days_before} {get_accusative_case(days_before, day_cases)}")
-    await fetch_and_log_matches_for_last_day(days=days_before)
+    await fetch_and_log_matches_for_last_day(days=days_before, channel_id=channel_id)
     await update.message.reply_text(f"Перевірив звіти за зміни з {days_before} {get_accusative_case(days_before, day_cases)}.")
 
 async def start_parser(update, context):

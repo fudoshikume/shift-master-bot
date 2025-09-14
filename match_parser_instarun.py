@@ -3,7 +3,6 @@ import asyncio
 import db
 from core import get_accusative_case, day_cases
 
-
 async def get_matches(session, steam_id, days):
     """Returns JSON of a player's recent matches."""
     url = f'https://api.opendota.com/api/players/{steam_id}/matches'
@@ -16,7 +15,6 @@ async def get_matches(session, steam_id, days):
         print(f"[OK] Fetched {len(matches)} matches for {steam_id}")
         return matches
 
-
 async def request_parse(session, match_id):
     """Requests OpenDota to parse a given match."""
     url = f'https://api.opendota.com/api/request/{match_id}'
@@ -26,7 +24,6 @@ async def request_parse(session, match_id):
         else:
             print(f"[Failed] Could not request parse for {match_id}")
         return await response.json()
-
 
 async def check_and_parse_matches(days, send_message_callback=None):
     print(f"\n[Start] Checking matches to parse from the last {days} days...")
@@ -49,7 +46,6 @@ async def check_and_parse_matches(days, send_message_callback=None):
     if send_message_callback:
         await send_message_callback(f"[Готово] Пропарсив вам матчі за {days} {get_accusative_case(days, day_cases)}.")
 
-
 async def run_loop(days=7, send_message_callback=None):
     while True:
         try:
@@ -57,7 +53,6 @@ async def run_loop(days=7, send_message_callback=None):
         except Exception as e:
             print(f"[Crash] Error during parse check: {e}")
         await asyncio.sleep(60)
-
 
 if __name__ == "__main__":
     print("[Run] Parser is starting...")

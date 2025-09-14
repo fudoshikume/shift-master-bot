@@ -10,19 +10,7 @@ load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-players = [
-    Player(60939193, '@basturmate'),
-    Player(91979951, '@chuck_singer'),
-    Player(113464386, '@matwey_k'),
-    Player(378156730, '@Honey_Badger'),
-    Player(180785888, '@boikevich-Turbo'),
-    Player(196765629, '@Женя'),
-    Player(154210795, '@SKantor1'),
-    Player(1513957386, '@bobokaja'),
-    Player(195364625, '@jwl_s'),
-    Player(153518750,'@m_ANJ'),
-    Player(221564662,'@dimon4egkl')]
-
+players = []
 
 intents = discord.Intents.default()
 intents.messages = True  # Дозволяє читати повідомлення

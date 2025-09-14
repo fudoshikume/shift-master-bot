@@ -11,7 +11,6 @@ from collections import Counter
 import random
 import httpx
 
-
 load_dotenv()
 
 GRAPHQL_URL = "https://api.stratz.com/graphql"
@@ -27,7 +26,6 @@ query {
   }
 }"""
 
-@dataclass
 @dataclass
 class Match:
     match_id: int
@@ -90,90 +88,11 @@ class Match:
 
         return new_matches
 
-    # @staticmethod
-    # def write_matches_to_csv(matches: list, filename='matchlog.csv', overwrite=False):
-    #     file_exists = os.path.exists(filename)
-    #
-    #     mode = 'w' if overwrite else 'a'
-    #
-    #     with open(filename, mode, newline='', encoding='utf-8') as f:
-    #         writer = csv.writer(f)
-    #
-    #         if not file_exists or overwrite:
-    #             writer.writerow(
-    #                 ["match_id", "player_ids", "win_status", "solo_status", "endtime", "duration", "match_mode"]
-    #             )
-    #
-    #         for match in matches:
-    #             writer.writerow([
-    #                 match.match_id,
-    #                 ';'.join(str(pid) for pid in match.player_ids),
-    #                 int(match.win_status),
-    #                 "1" if match.solo_status is True else "0" if match.solo_status is False else "",
-    #                 match.endtime.isoformat() if match.endtime else "",
-    #                 match.duration,
-    #                 match.match_mode,
-    #             ])
-
-# def read_matches_from_csv(filename='matchlog.csv') -> list:
-#     matches = []
-#
-#     if not os.path.exists(filename):
-#         return matches
-#
-#     try:
-#         with open(filename, newline='', encoding="utf-8") as f:
-#             reader = csv.DictReader(f)
-#
-#             for row in reader:
-#                 if not row["match_id"] or row["match_id"] == "match_id":
-#                     continue
-#
-#                 # Parse solo_status safely
-#                 solo_raw = row.get("solo_status", "").strip()
-#                 if solo_raw == "1":
-#                     solo_status = True
-#                 elif solo_raw == "0":
-#                     solo_status = False
-#                 else:
-#                     solo_status = None
-#
-#                 # Parse match_mode safely (as int if possible, else 0)
-#                 match_mode_raw = row.get("match_mode", "").strip()
-#                 try:
-#                     match_mode = int(match_mode_raw) if match_mode_raw else 0
-#                 except ValueError:
-#                     match_mode = 0
-#
-#                 match = Match(
-#                     match_id=int(row["match_id"]),
-#                     player_ids=[int(pid) for pid in row["player_ids"].split(";") if pid],
-#                     win_status=json.loads(row["win_status"]),
-#                     solo_status=solo_status,
-#                     endtime=datetime.fromisoformat(row["endtime"]) if row["endtime"] else None,
-#                     duration=int(row["duration"]) if row["duration"] else 0,
-#                     match_mode=match_mode  # correctly assigned here
-#                 )
-#                 matches.append(match)
-#     except Exception as e:
-#         print(f"[ERROR] Reading matches from CSV failed: {e}")
-#
-#     return matches
-
 async def get_last_week_matches():
     import db
     matches = await db.get_logged_match_objects()
     one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     return [m for m in matches if m.endtime > one_week_ago]
-
-# async def fetch_and_log_matches():
-#     import db
-#     players = db.get_players()
-#     player_ids = [player.steam_id for player in players]
-#
-#     for player in players:
-#         new_matches = await Match.create_new_matches_from_recent(player.steam_id, player_ids)
-#         await db.add_matches(new_matches)
 
 def get_player_counters(matches: list) -> tuple[Counter, Counter, Counter, Counter]:
     games_played = Counter()
@@ -425,65 +344,3 @@ async def is_player_solo_in_match(match_id, steam_id: int) -> bool | None:
             return player.get("partyId") is None
 
     return None  # Player not found in match
-
-"""here comes temp stuff to test out how stratz API works. I try and get solo status from stratz for the unparsed matches we logged"""
-
-# async def fetch_match_mode(match_id: int) -> int:
-#     async with httpx.AsyncClient() as client:
-#         try:
-#             resp = await client.get(f"{OD_API_URL}{match_id}")
-#             if resp.status_code == 200:
-#                 data = resp.json()
-#                 return data.get("game_mode", 0) or 0
-#             else:
-#                 print(f"[OD] Failed to fetch {match_id}: {resp.status_code}")
-#         except Exception as e:
-#             print(f"[OD] Exception fetching {match_id}: {e}")
-#     return 0
-#
-# async def update_match_modes(matches: list):
-#     count =0
-#     for i, match in enumerate(matches):
-#         if not match.match_mode or match.match_mode == 0:
-#             old_mode = match.match_mode
-#             match.match_mode = await fetch_match_mode(match.match_id)
-#             print(f"Updated match {match.match_id}. {GAME_MODES.get(old_mode)} -> {GAME_MODES.get(match.match_mode)} ---\|/--- ({i+1}/{len(matches)})")
-#             count+=1
-#             await asyncio.sleep(0.5)  # To avoid rate limit
-#
-#     # Rewrite the file after all updates
-#     Match.write_matches_to_csv(matches, overwrite=True)
-#     print(f"✅ matchlog.csv rewritten with {count} updated match_modes")
-#
-# async def main():
-#
-#
-# if __name__ == '__main__':
-#     asyncio.run(main())
-
-# async def update_all_solo_status_stratz():
-#     matches = read_matches_from_csv()
-#     updated = False
-#     count = 0
-#
-#     for match in matches:
-#         # Assumes first player is the tracked one
-#         steam_id = match.player_ids[0]
-#         new_status = await is_player_solo_in_match(match.match_id, steam_id)
-#         print(f"{match.match_id} -> \nold solo staus - {match.solo_status}, \nnew status - {new_status}")
-#
-#         if new_status is not None and new_status != match.solo_status:
-#             print(f"🔄 Match {match.match_id} solo status changed to {new_status}")
-#             match.solo_status = new_status
-#             updated = True
-#             count += 1
-#
-#
-#         # Sleep to avoid STRATZ rate limits (5 req/sec = 0.2s delay)
-#         await asyncio.sleep(1.1)
-#
-#     if updated:
-#         Match.write_matches_to_csv(matches)
-#         print(f"💾 Matchlog updated with {count} new solo statuses.")
-#     else:
-#         print("✅ No changes needed.")

@@ -231,13 +231,13 @@ async def add_matches(matches: List[Match]) -> bool:
         )
 
     # Запис у matchlog
-    res1 = supabase.table("matchlog").insert(matchlog_rows).execute()
+    res1 = supabase.table("matchlog").upsert(matchlog_rows).execute()
     if res1.data is None:
         print("❌ Error inserting into matchlog:", res1)
         return False
 
     # Запис у match_players
-    res2 = supabase.table("match_players").insert(match_players_rows).execute()
+    res2 = supabase.table("match_players").upsert(match_players_rows).execute()
     if res2.data is None:
         print("❌ Error inserting into match_players:", res2)
         return False
@@ -280,8 +280,6 @@ async def update_match(match: Match) -> bool:
     return True
 
 #misc for db operating
-#-------------
-#-------------
 def parse_timestamp(ts_str):
     try:
         # Приклад для формату "2025-04-15 19:09:18+00"

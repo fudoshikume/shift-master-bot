@@ -155,12 +155,31 @@ def remove_player(steam_id: int, channel_id: str = None):
         supabase.table("player_channels").delete().eq("steam_id", steam_id).execute()
         supabase.table("players").delete().eq("steam_id", steam_id).execute()
 
-async def get_logged_matches():
+async def get_logged_matches(limit=2000, chunk_size=1000):
     """
-    Отримує всі матчі з matchlog (повні записи, не тільки ID)
+    Отримує останні матчі з matchlog, гарантовано враховуючи більше 1000 записів.
+    limit - загальна кількість останніх матчів для вибірки
+    chunk_size - кількість записів у кожному запиті
     """
-    res = supabase.table("matchlog").select("*").execute()
-    return res.data or []
+    matches = []
+    start = 0
+    while start < limit:
+        end = start + chunk_size - 1
+        res = supabase.table("matchlog") \
+            .select("*") \
+            .order("endtime", desc=True) \
+            .range(start, end) \
+            .execute()
+        data = res.data or []
+        if not data:
+            break
+        matches.extend(data)
+        if len(data) < chunk_size:
+            break
+        start += chunk_size
+
+    print(f"DEBUG: Total matches fetched (paginated): {len(matches)}")
+    return matches[:limit]
 
 async def get_logged_match_objects():
     raw_matches = await get_logged_matches()
@@ -181,13 +200,31 @@ async def get_logged_match_objects():
     matches = []
     empty_player_ids = 0
     for m in raw_matches:
+        print(f"[RAW MATCH DEBUG] {m['match_id']} | "
+              f"endtime={m.get('endtime')} | "
+              f"win_status={m.get('win_status')} | "
+              f"solo_status={m.get('solo_status')} | "
+              f"duration={m.get('duration')} | "
+              f"match_mode={m.get('match_mode')}")
         player_ids = players_by_match.get(m["match_id"], [])
         if not player_ids:
             print(f"DEBUG: No players for match_id {m['match_id']}, date {m.get('endtime')}")
-
             empty_player_ids += 1
 
         dt_endtime = parse_timestamp(m.get("endtime")) if m.get("endtime") else None
+
+        # 🔎 DEBUG: вивести всі дані по матчу
+        # debug_str = " | ".join([
+        #     f"match_id={m.get('match_id')}",
+        #     f"endtime={m.get('endtime')}",
+        #     f"parsed_endtime={dt_endtime}",
+        #     f"duration={m.get('duration')}",
+        #     f"match_mode={m.get('match_mode')}",
+        #     f"win_status={m.get('win_status')}",
+        #     f"solo_status={m.get('solo_status')}",
+        #     f"player_ids={player_ids}"
+        # ])
+        # print(f"[MATCH DEBUG] {debug_str}")
 
         match_obj = Match(
             match_id=m["match_id"],

@@ -193,7 +193,7 @@ async def get_logged_match_objects():
             match_id=m["match_id"],
             win_status=bool(m["win_status"]),
             solo_status=bool(m["solo_status"]) if m.get("solo_status") is not None else None,
-            endtime=m.get("endtime"),
+            endtime=dt_endtime,
             duration=m.get("duration"),
             match_mode=m.get("match_mode"),
             player_ids=player_ids

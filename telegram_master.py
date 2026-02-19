@@ -217,20 +217,20 @@ async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "✅ Гравця додано." if success else "ℹ️ Гравець вже існує або сталася помилка."
     await update.message.reply_text(msg)
 
-    job = context.user_data[user_id].pop("pending_add_job", None)
+    job = context.user_data.pop("pending_add_job", None)
     if job:
         job.schedule_removal()
 
 async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    pending = context.application.user_data.get(user_id, {}).get("pending_add")
+    pending = context.user_data.get("pending_add")
 
     if not pending:
         await update.message.reply_text("⚠️ Немає гравця для скасування.")
         return
 
-    context.application.user_data[user_id].pop("pending_add", None)
-    job = context.application.user_data[user_id].pop("pending_add_job", None)
+    context.user_data.pop("pending_add", None)
+
+    job = context.user_data.pop("pending_add_job", None)
     if job:
         job.schedule_removal()
 
@@ -242,8 +242,10 @@ async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
     user_id = data["user_id"]
 
     # Remove pending add request if it still exists
-    if "pending_add" in context.application.user_data[user_id]:
-        del context.application.user_data[user_id]["pending_add"]
+    user_data = context.application.user_data.get(user_id)
+
+    if user_data and "pending_add" in user_data:
+        del user_data["pending_add"]
         await context.bot.send_message(
             chat_id=chat_id,
             text="⌛️ Час на підтвердження вийшов. Гравця не додано."

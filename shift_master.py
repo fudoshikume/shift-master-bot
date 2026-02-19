@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from core import names, get_accusative_case, rank_id_to_tier
 
 class Player:
-    def __init__(self, steam_id, name, current_rank=0):
+    def __init__(self, steam_id, name):
         self.steam_id = steam_id
         self.name = name
         self.daily_games = 0

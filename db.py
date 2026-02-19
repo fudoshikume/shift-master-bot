@@ -324,21 +324,22 @@ def parse_timestamp(ts_str):
     except Exception:
         return None
 
-async def get_all_match_players(match_ids, chunk_size=1000):
+async def get_all_match_players(match_ids, chunk_size=500):
+    if not match_ids:
+        return []
+
     all_players = []
-    start = 0
-    while True:
-        end = start + chunk_size - 1
-        res = supabase.table("match_players") \
-            .select("match_id, steam_id") \
-            .in_("match_id", match_ids) \
-            .range(start, end) \
+
+    for i in range(0, len(match_ids), chunk_size):
+        chunk = match_ids[i:i + chunk_size]
+
+        res = (
+            supabase.table("match_players")
+            .select("match_id, steam_id")
+            .in_("match_id", chunk)
             .execute()
-        data = res.data or []
-        if not data:
-            break
-        all_players.extend(data)
-        if len(data) < chunk_size:
-            break
-        start += chunk_size
+        )
+
+        all_players.extend(res.data or [])
+
     return all_players

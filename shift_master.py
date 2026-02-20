@@ -133,7 +133,7 @@ async def update_rank(platform, channel):
 async def get_last_hour_solo_losers(matches: list, players: list, platform) -> list:
     """f() that returns list of player.name in Players, who have lost solo games within last 60 min"""
     now = datetime.now(timezone.utc)
-    one_hour_ago = now - timedelta(minutes=70)
+    one_hour_ago = now - timedelta(minutes=61)
     solo_losers = []
     for player in players:
         for match in matches:

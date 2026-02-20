@@ -105,24 +105,46 @@ async def get_channel_players(channel_id: str) -> list[Player]:
 
     return players
 
-def add_player(player_data: dict):
-    # Додаємо гравця в players
+# def add_player(player_data: dict):
+#     # Додаємо гравця в players
+#
+#     res = supabase.table("players").insert(player_data).execute()
+#     if res.data is None:  # 201 Created
+#         print("Error inserting player data")
+#         return False
+#
+#     # Додаємо зв'язки в player_channels, якщо є channel_ids у player_data
+#     if "channel_ids" in player_data:
+#         channel_ids = player_data["channel_ids"]
+#         if isinstance(channel_ids, str):
+#             channel_ids = [channel_ids]  # якщо один канал, зробимо список
+#
+#         for ch_id in channel_ids:
+#             supabase.table("player_channels").insert({
+#                 "steam_id": player_data["steam_id"],
+#                 "channel_id": ch_id
+#             }).execute()
+#     return True
+
+def add_player(pending_data: dict):
+
+    # Формуємо JSON для колонки name
+    name_json = pending_data.get("name", {}).copy()
+
+
+    player_data = {
+        "steam_id": pending_data["steam_id"],
+        "name": name_json,                      # jsonb
+        "current_rank": 0,                      # дефолт
+        "channel_ids": pending_data.get("channel_ids", [])
+    }
+
     res = supabase.table("players").insert(player_data).execute()
-    if res.data is None:  # 201 Created
-        print("Error inserting player data")
+
+    if not res.data:
+        print("Error inserting player:", res)
         return False
 
-    # Додаємо зв'язки в player_channels, якщо є channel_ids у player_data
-    if "channel_ids" in player_data:
-        channel_ids = player_data["channel_ids"]
-        if isinstance(channel_ids, str):
-            channel_ids = [channel_ids]  # якщо один канал, зробимо список
-
-        for ch_id in channel_ids:
-            supabase.table("player_channels").insert({
-                "steam_id": player_data["steam_id"],
-                "channel_id": ch_id
-            }).execute()
     return True
 
 def update_player(player_id, updates: dict):

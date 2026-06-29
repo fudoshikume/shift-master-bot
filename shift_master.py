@@ -1,6 +1,7 @@
 import asyncio
 import random
 from datetime import datetime, timedelta, timezone
+from typing import Any, Coroutine
 
 import aiohttp
 import requests
@@ -130,7 +131,7 @@ async def update_rank(platform, channel):
     return msg
 
 
-async def get_last_hour_solo_losers(matches: list, players: list, platform) -> list:
+async def get_last_hour_solo_losers(matches: list, players: list, platform) -> tuple[list[Any], list[Any]]:
     """f() that returns list of player.name in Players, who have lost solo games within last 60 min"""
     now = datetime.now(timezone.utc)
     one_hour_ago = now - timedelta(minutes=61)
@@ -146,8 +147,20 @@ async def get_last_hour_solo_losers(matches: list, players: list, platform) -> l
             ):
                 solo_losers.append(player.name.get(platform, player.name.get("telegram")))
                 break  # Don't double count this player, one solo loss is enough
+    solo_winners = []
+    for player in players:
+        for match in matches:
+            if (
+                player.steam_id in match.player_ids
+                and match.solo_status
+                and match.win_status is True
+                and match.endtime
+                and match.endtime >= one_hour_ago
+            ):
+                solo_winners.append(player.name.get(platform, player.name.get("telegram")))
+                break  # Don't double count this player, one solo loss is enough
 
-    return solo_losers
+    return solo_losers, solo_winners
 
 
 async def check_and_notify(channel, platform) -> str:
@@ -157,9 +170,11 @@ async def check_and_notify(channel, platform) -> str:
     message = [""]
     matches = await db.get_logged_match_objects()
     players = await db.get_channel_players(channel)
-    solo_loss_players = await get_last_hour_solo_losers(matches, players, platform)
+    solo_loss_players, solo_win_players = await get_last_hour_solo_losers(matches, players, platform)
     for player in solo_loss_players:
         message.append(f"{player}, НТ, старенький, вже як є :(")
+    for player in solo_win_players:
+        message.append(f"{player} засолив пасажирам катку!")
     compiled_msg = "\n".join(message)
     await asyncio.sleep(0.1)
     return compiled_msg

@@ -244,7 +244,7 @@ async def timeout_pending_add(context: ContextTypes.DEFAULT_TYPE):
     user_id = data["user_id"]
 
     # Remove pending add request if it still exists
-    if "pending_add" in context*.user_data[user_id]:
+    if "pending_add" in context.user_data[user_id]:
         del context.user_data[user_id]["pending_add"]
         await context.bot.send_message(
             chat_id=chat_id,
